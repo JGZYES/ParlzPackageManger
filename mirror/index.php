@@ -116,6 +116,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') { http_response_code(204);
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $uri = rawurldecode($uri);
 
+/* strip the deployment sub-path (e.g. "/mirror" when the site is at
+ * https://host/mirror/index.php) so the router works under a subdirectory too.
+ * Only strip when the remainder starts with '/' or is empty — so "/mirror.ini"
+ * is NOT mistaken for the "/mirror" prefix. */
+$basePath = parse_url(base_url(), PHP_URL_PATH) ?: '';
+if ($basePath && $basePath !== '/' && strpos($uri, $basePath) === 0) {
+    $rest = substr($uri, strlen($basePath));
+    if ($rest === '' || $rest[0] === '/') {
+        $uri = ($rest === '') ? '/' : $rest;
+    }
+}
+
 if (preg_match('#^/upload$#', $uri)) {
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') { handle_upload(); }
     else { http_response_code(405); echo 'method not allowed'; exit; }
