@@ -104,23 +104,24 @@ priority = 20
 
 ## 镜像站（mirror/ 网页版）
 
-`mirror/` 目录是一个零依赖的 Node.js 镜像站，提供网页浏览、搜索、按平台筛选、
-上传包并自动生成 registry 索引。
+`mirror/` 目录是一个**纯 PHP** 镜像站（zero-dependency：仅需 PHP 8 的 json/标准扩展），
+提供网页浏览、搜索、按平台筛选、上传包并自动生成 registry 索引。
 
 **默认站点：`https://pmm.parlz.com/mirror`**（上传生成的下载链接和 `mirror.ini`
 都指向它）。本地开发/测试可用 `PMM_BASE_URL` 覆盖：
 
 ```sh
-cd mirror && node server.js                     # 生产默认 https://pmm.parlz.com/mirror
-PMM_BASE_URL=http://127.0.0.1:8080 node server.js   # 本地调试
-PMM_PORT=9000 node server.js                 # 仅改监听端口
+cd mirror
+PMM_BASE_URL=http://127.0.0.1:8080 php -S 0.0.0.0:8080 index.php   # 本地调试
+php -S 0.0.0.0:8080 index.php                                     # 生产默认 https://pmm.parlz.com/mirror
 ```
+（Apache/Nginx 部署时把所有请求路由到 `index.php` 前端控制器即可。）
 
 - 网页 `/`：浏览/搜索包、按 Windows/Linux/macOS 筛选、复制安装命令
 - `POST /upload`：上传 `.pdm`/`.deb`/`.exe`/`.dmg`/`.tar.gz` 等，自动算 sha256/sha1
 - 上传带 `x-pkg-name`、`x-pkg-version`、`x-pkg-os`、`x-pkg-desc` 头（或表单包名）
-  会写 registry。**包文件存到 `packages/<包>/<版本>.pdm`，元数据 `packages/<包>/<版本>.json`，
-  `<包>.json` 是 latest 指针（含 `versions` 列表）**；不再有独立的 `files/` 目录。
+  会写 registry。**包文件存到 `packages/<包>/<版本>-<平台>.pdm`，元数据
+  `packages/<包>/<版本>-<平台>.json`，`<包>.json` 是 latest 指针（含 `variants` 列表）**。
 - `GET /packages.json`：registry 聚合索引（只列 latest，供 `pmm install` 无版本时用）
 - `GET /mirror.ini`：可直接复制到 `~/.pmm/mirror.ini` 的镜像配置
 - 目录约定：`packages/<包>.json`（latest）+ `packages/<包>/<版本>.pdm|.json`
