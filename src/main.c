@@ -345,8 +345,8 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
         print_help(); return 0;
     }
-    if (strcmp(argv[1], "version") == 0 || strcmp(argv[1], "--version") == 0) {
-        printf("pmm %s (%s)\n", PMM_VERSION, pmm_os_name(pmm_detect_os()));
+    if (strcmp(argv[1], "version") == 0 || strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0) {
+        printf("pmm %s (%s) [%s]\n", PMM_VERSION, pmm_os_name(pmm_detect_os()), pmm_detect_arch());
         return 0;
     }
     if (strcmp(argv[1], "list") == 0) return cmd_list();
@@ -367,7 +367,7 @@ int main(int argc, char **argv) {
         free(cfg.registry_url); free(cfg.mirror_name);
         free(mirror.name); free(mirror.api_base);
         if (rc == 0)
-            printf("pmm: updated. New tools are under %s/bin (pmm/pdm). Re-run from there, or add it to PATH.\n",
+            printf("pmm: updated. New tools are under %s/root/bin (pmm/pdm). Re-run from there, or add it to PATH.\n",
                    pmm_config_dir((char[1024]){0}, 1024));
         return rc == 0 ? 0 : 1;
     }
