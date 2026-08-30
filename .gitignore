@@ -1,20 +1,23 @@
-# build artifacts
+# build artifacts / binaries (keep these OUT of git)
 *.exe
 *.o
 /dist/
 
-# packaged binaries / large upstream files (keep them out of git)
+# PMM tool packages & big upstream files (outside mirror/packages)
 *.pdm
 *.msi
 *.tar.xz
 *.tar.gz
 *.zip
 
-# mirror runtime data (the browser-station packages are regenerated at deploy)
+# mirror runtime logs
 mirror/server.log
-mirror/packages/
-mirror/files/
 
 # editors
 .vscode/
 .idea/
+
+# The mirror registry (mirror/packages) IS committed so the mirror is complete
+# and downloadable. Un-ignore the .pdm files there; *.pdm elsewhere stays ignored.
+!mirror/packages/
+!mirror/packages/**/*.pdm
