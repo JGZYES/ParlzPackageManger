@@ -1,5 +1,7 @@
 # ParlzPackageManger (PMM)
 
+> **License: GNU GPL v3** — 本项目以 GNU General Public License v3 发布，详见 `LICENSE`。
+
 用 C 语言编写的跨平台包管理器（Windows / Linux / macOS），零第三方库依赖
 （下载通过系统自带的 `curl` 完成，Windows 10+、macOS、主流 Linux 均预装）。
 
