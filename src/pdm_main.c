@@ -56,6 +56,20 @@ int main(int argc, char **argv) {
     pmm_set_self_path(argv[0]);
     argc = consume_drive_flag(argc, argv);
     if (argc < 2) { usage(); return 0; }
+    /* version: pdm -v / --version */
+    if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0) {
+        printf("pdm %s (%s) [%s]\n", PMM_VERSION, pmm_os_name(pmm_detect_os()), pmm_detect_arch());
+        return 0;
+    }
+    /* self-update: install the latest pmm tool package (contains pmm + pdm) */
+    if (strcmp(argv[1], "update") == 0 || strcmp(argv[1], "self-update") == 0) {
+        printf("pdm: updating pmm+pdm for %s/%s\n", pmm_os_name(pmm_detect_os()), pmm_detect_arch());
+        int rc = install_from_registry("pmm", NULL, NULL);
+        if (rc == 0)
+            printf("pdm: updated. New tools are under %s/root/bin\n",
+                   pmm_config_dir((char[1024]){0}, 1024));
+        return rc == 0 ? 0 : 1;
+    }
     if (strcmp(argv[1], "pack") == 0) {
         if (argc < 3) { fprintf(stderr, "pdm: usage: pdm pack <dir> [output.pdm]\n"); return 1; }
         return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
