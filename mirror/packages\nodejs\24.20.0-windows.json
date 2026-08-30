@@ -1,0 +1,9 @@
+{
+  "name": "nodejs",
+  "version": "24.20.0",
+  "file": "24.20.0-windows.pdm",
+  "url": "https://pmm.parlz.com/mirror/packages/nodejs/24.20.0-windows.pdm",
+  "sha256": "96dd731adf20a81c40ea571558e70047a996ce0ad441fb9060bde37dfa21898a",
+  "os": "windows",
+  "description": "Node.js (Windows)"
+}
