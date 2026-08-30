@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PMM 镜像站</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --acc:#38bdf8; --txt:#e2e8f0; --muted:#94a3b8; --pos:#4ade80; --neg:#f87171; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;
+         background:var(--bg); color:var(--txt); }
+  header { padding:22px 28px; border-bottom:1px solid #334155; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:20px; margin:0; display:flex; align-items:center; gap:10px; }
+  header h1 .dot { width:12px; height:12px; border-radius:50%; background:var(--acc); box-shadow:0 0 12px var(--acc); }
+  .crumb { color:var(--muted); font-size:14px; }
+  main { padding:20px 28px; max-width:1080px; margin:0 auto; }
+  .toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:20px; }
+  input,select,button { padding:9px 12px; border-radius:8px; border:1px solid #334155; background:var(--card); color:var(--txt); font-size:14px; }
+  input:focus,select:focus { outline:2px solid var(--acc); border-color:transparent; }
+  button.primary { background:var(--acc); border:none; color:#022c3b; font-weight:600; cursor:pointer; }
+  button.primary:hover { filter:brightness(1.1); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid #334155; border-radius:12px; padding:16px; transition:.15s; }
+  .card:hover { border-color:var(--acc); transform:translateY(-2px); }
+  .card .name { font-weight:700; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .tag { font-size:12px; padding:2px 8px; border-radius:20px; background:#0f172a; color:var(--muted); border:1px solid #334155; }
+  .tag.win { color:#60a5fa; } .tag.lin { color:#4ade80; } .tag.mac { color:#f472b6; } .tag.any { color:var(--muted); }
+  .card .desc { color:var(--muted); font-size:13px; margin:8px 0; min-height:36px; }
+  .card .meta { font-size:12px; color:var(--muted); display:flex; justify-content:space-between; }
+  .card .actions { margin-top:12px; display:flex; gap:8px; }
+  .card a.btn { text-decoration:none; font-size:13px; padding:6px 10px; border-radius:7px; }
+  .a-ok { background:#14532d; color:#bbf7d0; } .a-mut { background:#1e293b; border:1px solid #334155; color:var(--txt); }
+  .hint { color:var(--muted); font-size:13px; }
+  code { background:#0f172a; border:1px solid #334155; padding:1px 5px; border-radius:5px; font-size:12px; }
+  .upload { margin:22px 0; background:var(--card); border:1px dashed #475569; border-radius:12px; padding:18px; }
+  .upload h3 { margin:0 0 10px; font-size:15px; }
+  .upload .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .upload .row label { font-size:13px; color:var(--muted); }
+  .error { color:var(--neg); }
+  .success { color:var(--pos); }
+  footer { color:var(--muted); font-size:12px; text-align:center; padding:26px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>PMM 镜像站</h1>
+  <span class="crumb" id="mirror-url"></span>
+</header>
+<main>
+  <div class="toolbar">
+    <input id="q" placeholder="搜索包名 / 描述..." autocomplete="off">
+    <select id="os">
+      <option value="all">全部平台</option>
+      <option value="windows">Windows</option>
+      <option value="linux">Linux</option>
+      <option value="macos">macOS</option>
+      <option value="any">跨平台</option>
+    </select>
+    <span class="hint" id="count"></span>
+  </div>
+
+  <div class="upload">
+    <h3>上传包（.pdm / .deb / .exe / .dmg / .tar.gz ...）</h3>
+    <div class="row">
+      <label>包名 <input id="u-pkg" placeholder="myapp" size="18"></label>
+      <label>版本 <input id="u-ver" placeholder="1.0.0" size="10"></label>
+      <label>文件 <input type="file" id="u-file" required></label>
+      <button class="primary" id="u-go">上传并索引</button>
+    </div>
+    <div class="hint" id="u-status"></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <br>
+  <div class="hint" style="text-align:center">
+    客户端使用：<code>pmm mirror use main</code> 后 <code>pmm install &lt;包名&gt;</code>，
+    或复制本页 <a href="/mirror.ini" style="color:var(--acc)">mirror.ini</a> 到 <code>~/.pmm/</code>。
+  </div>
+</main>
+<footer>ParlzPackageManger · 镜像站</footer>
+
+<script>
+const SELF = location.origin;
+document.getElementById('mirror-url').textContent = SELF;
+
+let ALL = [];
+async function load() {
+  try {
+    const r = await fetch(SELF + '/api/packages.json');
+    const j = await r.json();
+    ALL = j.packages || [];
+    render();
+  } catch (e) { console.warn('packages.json:%o', e); }
+}
+function platformOf(m) {
+  const osv = (m.os || '').toLowerCase();
+  if (osv === 'all' || osv === 'any' || !osv) return 'any';
+  if (/win/.test(osv)) return 'windows';
+  if (/mac|darwin/.test(osv)) return 'macos';
+  return 'linux';
+}
+function render() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const osf = document.getElementById('os').value;
+  const list = ALL.filter(m => {
+    const match = !q || (m.name||'').toLowerCase().includes(q) || (m.description||'').toLowerCase().includes(q);
+    const okOs = osf === 'all' || platformOf(m) === osf || platformOf(m) === 'any';
+    return match && okOs;
+  });
+  document.getElementById('count').textContent = `${list.length} / ${ALL.length} 包`;
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  const tagCls = { windows:'win', linux:'lin', macos:'mac', any:'any' };
+  for (const m of list) {
+    const p = platformOf(m);
+    const name = m.name || m.file || '?';
+    const ver = m.version || '';
+    const file = m.file || '';
+    const size = m.size ? fmtSize(m.size) : '';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="name"><span>${esc(name)}</span><span class="tag ${tagCls[p]||''}">${p}</span></div>
+      <div class="desc">${esc(m.description || '暂无描述')}</div>
+      <div class="meta"><span>v${esc(ver)}</span><span>${size}</span></div>
+      <div class="actions">
+        <a class="btn a-ok" href="${esc(m.url||'#')}" download>下载</a>
+        <a class="btn a-mut" href="#" data-copy="${esc('pmm install ' + name)}">复制安装命令</a>
+      </div>`;
+    card.querySelector('[data-copy]').addEventListener('click', e => {
+      e.preventDefault();
+      navigator.clipboard && navigator.clipboard.writeText(e.target.getAttribute('data-copy'));
+      e.target.textContent = '已复制';
+      setTimeout(()=>e.target.textContent='复制安装命令',1200);
+    });
+    grid.appendChild(card);
+  }
+}
+function fmtSize(n) {
+  if (n >= 1048576) return (n/1048576).toFixed(1) + ' MB';
+  if (n >= 1024) return (n/1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+document.getElementById('q').addEventListener('input', render);
+document.getElementById('os').addEventListener('change', render);
+
+document.getElementById('u-go').addEventListener('click', async () => {
+  const pkg = document.getElementById('u-pkg').value.trim();
+  const ver = document.getElementById('u-ver').value.trim();
+  const f = document.getElementById('u-file').files[0];
+  const status = document.getElementById('u-status');
+  if (!f) { status.textContent = '请选择文件'; return; }
+  status.textContent = '上传中...'; status.className='hint';
+  const fd = new FormData();
+  fd.append('file', f);
+  const hdr = {};
+  if (pkg) hdr['x-pkg-name'] = pkg;
+  if (ver) hdr['x-pkg-version'] = ver;
+  try {
+    const r = await fetch(SELF + '/upload', { method:'POST', body: fd, headers: hdr });
+    const j = await r.json();
+    status.textContent = `完成：${j.file}（sha256 ${(j.sha256||'').slice(0,16)}…）` + (j.pkg?`，注册包 ${j.pkg}`:'');
+    status.className='success';
+    load();
+  } catch (e) { status.textContent='上传失败 '+e; status.className='error'; }
+});
+load();
+</script>
+</body>
+</html>
