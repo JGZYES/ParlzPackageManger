@@ -273,27 +273,17 @@ static int cmd_mirror(int argc, char **argv) {
     return 1;
 }
 
-static int cmd_list(void) {
-    char dir[1024];
-    pmm_install_dir(dir, sizeof(dir));
-    printf("install dir: %s\n", dir);
-#ifdef _WIN32
-    char cmd[1200];
-    snprintf(cmd, sizeof(cmd), "dir /b \"%s\" 2>nul", dir);
-#else
-    char cmd[1200];
-    snprintf(cmd, sizeof(cmd), "ls -1 \"%s\" 2>/dev/null", dir);
-#endif
-    return system(cmd) == 0 ? 0 : 0;
-}
-
 static void print_help(void) {
     printf("ParlzPackageManger (PMM) v%s\n\n", PMM_VERSION);
     printf("usage:\n");
     printf("  pmm install <pkg>                     install from registry mirrors (apt-style)\n");
     printf("  pmm install <file.pdm>                install a local .pdm package\n");
+    printf("  pmm install <pkg> [pkg2 ...]          install several packages\n");
     printf("  pmm pack <dir> [out.pdm]              pack a folder into a .pdm\n");
-    printf("  pmm pdm install|list|remove|info ...  manage .pdm packages\n");
+    printf("  pmm info <file.pdm>                   show package control info\n");
+    printf("  pmm list                              list installed packages\n");
+    printf("  pmm remove <pkg>                      uninstall a package\n");
+    printf("  pmm self-update                       update pmm (auto os/arch)\n");
     printf("  pmm install --git <repo-url.git>      any git host, API auto-detected\n");
     printf("  pmm install --github <owner/repo>     GitHub latest release\n");
     printf("  pmm install --gitlab <owner/repo>     GitLab latest release\n");
@@ -349,7 +339,7 @@ int main(int argc, char **argv) {
         printf("pmm %s (%s) [%s]\n", PMM_VERSION, pmm_os_name(pmm_detect_os()), pmm_detect_arch());
         return 0;
     }
-    if (strcmp(argv[1], "list") == 0) return cmd_list();
+    if (strcmp(argv[1], "list") == 0) { pdm_list_installed(); return 0; }
     if (strcmp(argv[1], "mirror") == 0) return cmd_mirror(argc - 2, argv + 2);
     /* pmm remove <pkg>  (also used by the Windows "Uninstall" registration) */
     if (strcmp(argv[1], "remove") == 0) {
@@ -378,55 +368,57 @@ int main(int argc, char **argv) {
                           strcmp(argv[2], "--forgejo") == 0))
             return cmd_install_git(argc - 3, argv + 3, argv[2] + 2);
     if (argc < 3) {
-        fprintf(stderr, "pmm: usage: pmm install <pkg|file.pdm> | pmm install --git <repo>\n");
+        fprintf(stderr, "pmm: usage: pmm install <pkg|file.pdm> [...] | pmm install --git <repo>\n");
         return 1;
     }
-    /* parse package name + optional version spec:
-     *   pmm install nodejs==24.20.0
-     *   pmm install "nodejs>=24,<25"
-     *   pmm install nodejs -v 24.20.0   /  --version ">=24,<25" */
-    const char *raw_pkg = NULL, *version = NULL;
+    /* collect one or more package arguments (each may carry an inline version
+     * spec like nodejs>=24,<25); optional -v/--version applies to a single one */
+    const char *version = NULL;
+    const char *items[64]; int ni = 0;
     for (int i = 2; i < argc; i++) {
         const char *a = argv[i];
         if (strncmp(a, "-v", 2) == 0 && a[2]) { version = a + 2; continue; }
         if (strcmp(a, "-v") == 0 && i + 1 < argc) { version = argv[++i]; continue; }
         if (strcmp(a, "--version") == 0 && i + 1 < argc) { version = argv[++i]; continue; }
         if (strncmp(a, "--version=", 10) == 0) { version = a + 10; continue; }
-        if (!raw_pkg && a[0] != '-') { raw_pkg = a; continue; }
+        if (a[0] != '-' && ni < 64) items[ni++] = a;
     }
-    if (!raw_pkg) raw_pkg = argv[2];
-    /* split "nodejs>=24,<25" -> pkg="nodejs", spec=">=24,<25"; else pkg only */
-    char pkg[256], spec[256];
-    if (version && *version) {
-        strncpy(pkg, raw_pkg, sizeof(pkg) - 1);
-        strncpy(spec, version, sizeof(spec) - 1);
-    } else {
-        const char *ops[] = { ">=", "<=", "==", "!=", ">", "<", NULL };
-        const char *pos = NULL;
-        for (int i = 0; ops[i]; i++) { pos = strstr(raw_pkg, ops[i]); if (pos) break; }
-        if (pos) {
-            size_t n = (size_t)(pos - raw_pkg);
-            if (n >= sizeof(pkg)) n = sizeof(pkg) - 1;
-            memcpy(pkg, raw_pkg, n); pkg[n] = '\0';
-            strncpy(spec, pos, sizeof(spec) - 1);
-        } else {
-            strncpy(pkg, raw_pkg, sizeof(pkg) - 1);
-            spec[0] = '\0';
-        }
-    }
-    pkg[sizeof(pkg) - 1] = '\0'; spec[sizeof(spec) - 1] = '\0';
-    /* local .pdm file? */
-    size_t la = strlen(pkg);
-    if (la > 4 && (strcmp(pkg + la - 4, ".pdm") == 0 || strcmp(pkg + la - 4, ".PDM") == 0))
-        return pdm_install_file(pkg) == 0 ? 0 : 1;
+    if (ni == 0) items[ni++] = argv[2];
+
     PmmConfig cfg; MirrorSel mirror;
     load_config(&cfg);
     load_mirror(&cfg, &mirror);
-    /* apt-style: mirrors.first-wins by priority, active mirror if named */
-    int rc = install_from_registry(pkg, spec[0] ? spec : NULL, mirror.name);
+    int ok = 0;
+    for (int k = 0; k < ni; k++) {
+        const char *raw = items[k];
+        char pkg[256], spec[256];
+        if (ni == 1 && version && *version) {
+            strncpy(pkg, raw, sizeof(pkg) - 1); pkg[sizeof(pkg)-1] = '\0';
+            strncpy(spec, version, sizeof(spec) - 1); spec[sizeof(spec)-1] = '\0';
+        } else {
+            const char *ops[] = { ">=", "<=", "==", "!=", ">", "<", NULL };
+            const char *pos = NULL;
+            for (int i = 0; ops[i]; i++) { pos = strstr(raw, ops[i]); if (pos) break; }
+            if (pos) {
+                size_t n = (size_t)(pos - raw);
+                if (n >= sizeof(pkg)) n = sizeof(pkg) - 1;
+                memcpy(pkg, raw, n); pkg[n] = '\0';
+                strncpy(spec, pos, sizeof(spec) - 1); spec[sizeof(spec)-1] = '\0';
+            } else {
+                strncpy(pkg, raw, sizeof(pkg) - 1); pkg[sizeof(pkg)-1] = '\0';
+                spec[0] = '\0';
+            }
+        }
+        size_t la = strlen(pkg);
+        if (la > 4 && (strcmp(pkg + la - 4, ".pdm") == 0 || strcmp(pkg + la - 4, ".PDM") == 0)) {
+            if (pdm_install_file(pkg) == 0) ok++; else fprintf(stderr, "pmm: failed to install %s\n", pkg);
+            continue;
+        }
+        if (install_from_registry(pkg, spec[0] ? spec : NULL, mirror.name) == 0) ok++;
+    }
     free(cfg.registry_url); free(cfg.mirror_name);
     free(mirror.name); free(mirror.api_base);
-    return rc == 0 ? 0 : 1;
+    return ok == ni ? 0 : 1;
 }
 
     if (strcmp(argv[1], "pack") == 0) {
@@ -437,17 +429,9 @@ int main(int argc, char **argv) {
         return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
     }
 
-    if (strcmp(argv[1], "pdm") == 0) {
-        /* pmm pdm install/list/remove/info  (sugar for the standalone pdm tool) */
-        if (argc >= 3 && strcmp(argv[2], "install") == 0)
-            return pdm_install_file(argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
-        if (argc >= 3 && strcmp(argv[2], "list") == 0)  { pdm_list_installed(); return 0; }
-        if (argc >= 3 && strcmp(argv[2], "remove") == 0)
-            return pdm_remove(argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
-        if (argc >= 3 && strcmp(argv[2], "info") == 0)
-            return pdm_info(argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
-        fprintf(stderr, "pmm: usage: pmm pdm install|list|remove|info ...\n");
-        return 1;
+    if (strcmp(argv[1], "info") == 0) {
+        if (argc < 3) { fprintf(stderr, "pmm: usage: pmm info <file.pdm>\n"); return 1; }
+        return pdm_info(argv[2]) == 0 ? 0 : 1;
     }
 
     fprintf(stderr, "pmm: unknown command '%s' (try 'pmm help')\n", argv[1]);

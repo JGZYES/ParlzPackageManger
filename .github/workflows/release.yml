@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -41,10 +44,6 @@ jobs:
             src/main.c src/json.c src/ini.c src/pmm.c src/http.c src/repo.c src/install.c \
             src/sha256.c src/sha1.c src/mirrors.c src/pdm.c
 
-      - name: Build pdm
-        run: |
-          ${{ matrix.cc }} -O2 -Wall -static -std=c11 -o out/pdm${{ matrix.ext }} \
-            src/pdm_main.c src/pdm.c src/pmm.c src/sha256.c src/install.c src/http.c \
             src/json.c src/ini.c src/mirrors.c src/sha1.c
 
       - name: Upload artifact
@@ -60,6 +59,5 @@ jobs:
         with:
           files: |
             out/pmm${{ matrix.ext }}
-            out/pdm${{ matrix.ext }}
           generate_release_notes: true
           name: PMM ${{ github.ref_name }}

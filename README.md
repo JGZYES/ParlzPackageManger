@@ -8,12 +8,12 @@
 ## 构建
 
 ```sh
-make            # Linux / macOS（或任何有 make 的环境），生成 pmm + pdm 两个二进制
-build.bat       # Windows（只需 MinGW gcc），同样生成 pmm.exe + pdm.exe
+make            # Linux / macOS（或任何有 make 的环境），生成 pmm 二进制
+build.bat       # Windows（只需 MinGW gcc），生成 pmm.exe
 make install    # 安装到 /usr/local/bin（可选）
 ```
 
-产物是单文件 `pmm` / `pdm`（或 `.exe`），无 DLL/第三方库依赖。
+产物是单文件 `pmm`（或 `pmm.exe`），无 DLL/第三方库依赖。
 
 > 重要：Windows 构建须用**静态链接**（`-static`）。否则产物会依赖 MinGW 的
 > `libmcfgthread-2.dll`，在没装 MinGW 的普通 PowerShell 里会因为找不到该 DLL 而
@@ -36,7 +36,7 @@ pmm install --gitea https://git.example.com/owner/repo   # Gitea/Forgejo（含�
 pmm install --git owner/repo --host forgejo               # 强制指定主机类型
 
 pmm mirror list / add <名> <源> / use <名> / remove <名>
-pmm self-update                  # 从镜像安装最新版 pmm+pdm（自动识别本机 os/arch）
+pmm self-update                  # 从镜像安装最新版 pmm（自动识别本机 os/arch）
 pmm list
 pmm help / version
 pmm install <pkg> -pd          # 安装到 D:\.pmm（可换成 -pc 回到 C 盘，-px 任意盘）
@@ -69,14 +69,14 @@ SHA 实现为纯 C 内置（FIPS 180-4），无外部依赖。
 
 ## .pdm 包格式（模拟 dpkg 的 deb）
 
-`pdm pack ./目录` 会把目录打包成一个 `.pdm`（一个 tar 归档，含
+`pmm pack ./目录` 会把目录打包成一个 `.pdm`（一个 tar 归档，含
 `control.tar.gz` / `data.tar.gz` / `sha256sums` 三个成员，与 deb 的
 `control.tar`+`data.tar` 思路一致）：
 
 - 目录里需有一个 `pdm-control` 文件，格式为 `KEY: value` 行：
   `Package` / `Version` / `Architecture` / `Description` / `Maintainer`
 - 其余文件全部作为文件有效载荷，安装时解包到安装根目录（`~/.pmm/root`）
-- `pdm install <pkg.pdm>` / `pmm install <pkg.pdm>` 安装，`pdm remove` 卸载
+- `pmm install <pkg.pdm>` 安装，`pmm remove` 卸载
 - 安装记录写入 `~/.pmm/installed/<包名>.info`，含文件清单，用于卸载
 
 ## apt 式镜像（mirror.ini / mirror.conf）
@@ -181,7 +181,7 @@ pmm install "nodejs>=24,<25"       # 带空格/组合时加引号
 
 ## 自动加入 PATH
 
-每次成功安装后，pmm/pdm 会把 PMM 目录 **自动加入用户 PATH**（幂等，不重复）：
+每次成功安装后，pmm 会把 PMM 目录 **自动加入用户 PATH**（幂等，不重复）：
 
 - 始终加入 `~/.pmm/bin` 与 `~/.pmm/root`；
 - 还会扫描 `~/.pmm/root/` 下含有可执行文件的子目录并加入，例如安装 Node.js 后
@@ -204,7 +204,7 @@ pmm install "nodejs>=24,<25"       # 带空格/组合时加引号
 **自动按当前系统选平台**：
 
 ```sh
-pdmm install nodejs        # Windows 上装 node.exe 版，Linux 上自动装 ELF 版
+pmm install nodejs        # Windows 上装 node.exe 版，Linux 上自动装 ELF 版
 pmm install nodejs
 ```
 
@@ -240,7 +240,6 @@ src/sha256.c/.h  SHA-256（FIPS 180-4）
 src/sha1.c/.h    SHA-1（FIPS 180-4）
 src/mirrors.c/.h apt 式镜像列表（priority 排序 + 下载回退）
 src/pdm.c/.h     .pdm 打包/安装/卸载（模拟 deb）
-src/pdm_main.c   独立 pdm 工具
 src/install.c/.h 下载、校验与各平台安装
 mirror/           镜像站（Node.js 网页版）
 examples/        配置文件示例
