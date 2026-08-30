@@ -99,8 +99,12 @@ char *http_get(const char *url, int *status) {
 #include <windows.h>
 static unsigned long long now_ms(void) { return (unsigned long long)GetTickCount64(); }
 #else
-#include <time.h>
-static unsigned long long now_ms(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (unsigned long long)ts.tv_sec * 1000 + (unsigned long long)ts.tv_nsec / 1000000; }
+#include <sys/time.h>
+static unsigned long long now_ms(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (unsigned long long)tv.tv_sec * 1000ULL + (unsigned long long)tv.tv_usec / 1000ULL;
+}
 #endif
 
 /* human size: B / KB / MB / GB with 1 decimal */

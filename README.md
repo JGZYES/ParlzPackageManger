@@ -102,32 +102,28 @@ priority = 20
 - 下载文件时也会把镜像的 `download` 前缀按优先级排在原始 URL 之前逐个尝试。
 - 每家的 `priority` 相同则按出现顺序；`pmm mirror use <名>` 可强制优先用某个镜像。
 
-## 镜像站（mirror/ 网页版）
+## 镜像仓库（mirror/ 静态目录）
 
-`mirror/` 目录是一个**纯 PHP** 镜像站（zero-dependency：仅需 PHP 8 的 json/标准扩展），
-提供网页浏览、搜索、按平台筛选、上传包并自动生成 registry 索引。
-
-**默认站点：`https://pmm.parlz.com/mirror`**（上传生成的下载链接和 `mirror.ini`
-都指向它）。本地开发/测试可用 `PMM_BASE_URL` 覆盖：
+`mirror/` 现在只做一件事：**静态包仓库**（无网页、无上传），把 `packages/` 目录用
+任意静态文件服务器直接对外提供即可：
 
 ```sh
 cd mirror
-PMM_BASE_URL=http://127.0.0.1:8080 php -S 0.0.0.0:8080 index.php   # 本地调试
-php -S 0.0.0.0:8080 index.php                                     # 生产默认 https://pmm.parlz.com/mirror
+python -m http.server 8080            # 或 nginx/apache 直接指向 mirror/ 目录
 ```
-（Apache/Nginx 部署时把所有请求路由到 `index.php` 前端控制器即可。）
 
-- 网页 `/`：浏览/搜索包、按 Windows/Linux/macOS 筛选、复制安装命令
-- `POST /upload`：上传 `.pdm`/`.deb`/`.exe`/`.dmg`/`.tar.gz` 等，自动算 sha256/sha1
-- 上传带 `x-pkg-name`、`x-pkg-version`、`x-pkg-os`、`x-pkg-desc` 头（或表单包名）
-  会写 registry。**包文件存到 `packages/<包>/<版本>-<平台>.pdm`，元数据
-  `packages/<包>/<版本>-<平台>.json`，`<包>.json` 是 latest 指针（含 `variants` 列表）**。
-- `GET /packages.json`：registry 聚合索引（只列 latest，供 `pmm install` 无版本时用）
-- `GET /mirror.ini`：可直接复制到 `~/.pmm/mirror.ini` 的镜像配置
-- 目录约定：`packages/<包>.json`（latest）+ `packages/<包>/<版本>.pdm|.json`
+- 目录约定：`packages/<包>.json`（latest，含 `variants`）、
+  `packages/<包>/<版本>-<平台>.pdm`（包文件）、`packages/<包>/<版本>-<平台>.json`（元数据）。
+- 客户端把 `~/.pmm/mirror.ini` 指到该目录的 `packages`：
+  ```ini
+  [main]
+  registry = http://<host>:8080/packages      # 生产 https://pmm.parlz.com/mirror/packages
+  priority = 1
+  ```
+  然后 `pmm install nodejs`（自动识平台）即可从这个静态仓库下载安装。
+- `mirror.ini` 也可从此目录按需生成（`registry` 指向 `/packages`）。
 
-把 `mirror.ini` 指向这个镜像后，`pmm install <包>` 装 latest，也支持
-**Python/pip 风格的版本限定**：
+`pmm install <包>` 装 latest，也支持 **Python/pip 风格的版本限定**：
 
 ```sh
 pmm install nodejs                 # latest
