@@ -45,6 +45,9 @@ const char *pmm_self_path(void);
 
 typedef enum { OS_WINDOWS, OS_LINUX, OS_MACOS, OS_UNKNOWN } PmmOS;
 
+/* CPU architecture name string: "amd64", "aarch64", "arm64", "x86", ... */
+const char *pmm_detect_arch(void);
+
 typedef enum { HOST_GITHUB, HOST_GITLAB, HOST_GITEA, HOST_FORGEJO, HOST_AUTO, HOST_UNKNOWN } PmmHost;
 
 PmmOS pmm_detect_os(void);

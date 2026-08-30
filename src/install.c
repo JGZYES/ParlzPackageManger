@@ -303,6 +303,11 @@ static const char *cur_os_name(void) {
     switch (pmm_detect_os()) { case OS_WINDOWS: return "windows"; case OS_LINUX: return "linux";
                                case OS_MACOS: return "macos"; default: return "any"; }
 }
+static const char *cur_arch_name(void) {
+    const char *av = getenv("PMM_ARCH_OVERRIDE"); /* debug/testing */
+    if (av && *av) return av;
+    return pmm_detect_arch();
+}
 
 int install_from_registry(const char *name, const char *spec, const char *mirror_active) {
     if (!name || !*name) return -1;
@@ -364,18 +369,21 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
     }
 
     const char *osn = cur_os_name();
+    const char *arch = cur_arch_name();
     JsonValue *variants = json_get(meta, "variants");
     const char *dl = NULL, *file = NULL;
     char *want_sha = NULL;
     const char *chosen = NULL;
     if (variants && variants->count > 0) {
-        /* pick highest variant that matches OS (or 'any') + version spec */
+        /* pick highest variant matching OS + ARCH (or 'any') + version spec */
         const char *bestver = NULL;
         for (int i = 0; i < variants->count; i++) {
             JsonValue *v = json_at(variants, i);
             if (!v || v->type != JSON_OBJECT) continue;
             const char *vos = json_str(v, "os"); if (!vos) continue;
             if (strcmp(vos, osn) != 0 && strcmp(vos, "any") != 0) continue;
+            const char *varch = json_str(v, "arch");
+            if (varch && varch[0] && strcmp(varch, arch) != 0 && strcmp(varch, "any") != 0) continue;
             const char *ver = json_str(v, "version"); if (!ver) continue;
             if (spec && *spec && !spec_match(ver, spec)) continue;
             if (!bestver || vcmp(ver, bestver) > 0) { bestver = ver; chosen = ver;
@@ -383,11 +391,11 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
                 const char *s = json_str(v, "sha256"); free(want_sha); want_sha = s ? strdup(s) : NULL; }
         }
         if (!chosen) {
-            fprintf(stderr, "pmm: no version of '%s' for os=%s%s%s\n", name, osn,
+            fprintf(stderr, "pmm: no version of '%s' for os=%s arch=%s%s%s\n", name, osn, arch,
                     (spec && *spec) ? " satisfying '" : "", (spec && *spec) ? spec : "");
             json_free(meta); mirrors_free(ml); return -1;
         }
-        printf("pmm: selected %s@%s (os=%s)\n", name, chosen, osn);
+        printf("pmm: selected %s@%s (os=%s arch=%s)\n", name, chosen, osn, arch);
     } else {
         /* legacy single-platform entry */
         dl = json_str(meta, "url"); file = json_str(meta, "file");

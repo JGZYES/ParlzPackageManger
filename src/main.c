@@ -356,6 +356,21 @@ int main(int argc, char **argv) {
         if (argc < 3) { fprintf(stderr, "pmm: usage: pmm remove <pkg>\n"); return 1; }
         return pdm_remove(argv[2]) == 0 ? 0 : 1;
     }
+    /* pmm self-update: install the latest 'pmm' tool package (auto os+arch) */
+    if (strcmp(argv[1], "self-update") == 0 || strcmp(argv[1], "update") == 0) {
+        PmmConfig cfg; MirrorSel mirror;
+        load_config(&cfg);
+        load_mirror(&cfg, &mirror);
+        printf("pmm: self-update -> installing latest pmm (%s/%s)\n",
+               pmm_os_name(pmm_detect_os()), pmm_detect_arch());
+        int rc = install_from_registry("pmm", NULL, mirror.name);
+        free(cfg.registry_url); free(cfg.mirror_name);
+        free(mirror.name); free(mirror.api_base);
+        if (rc == 0)
+            printf("pmm: updated. New tools are under %s/bin (pmm/pdm). Re-run from there, or add it to PATH.\n",
+                   pmm_config_dir((char[1024]){0}, 1024));
+        return rc == 0 ? 0 : 1;
+    }
 
     if (strcmp(argv[1], "install") == 0) {
         if (argc >= 3 && (strcmp(argv[2], "--git") == 0 || strcmp(argv[2], "--github") == 0 ||

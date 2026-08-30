@@ -36,6 +36,7 @@ pmm install --gitea https://git.example.com/owner/repo   # Gitea/Forgejo（含�
 pmm install --git owner/repo --host forgejo               # 强制指定主机类型
 
 pmm mirror list / add <名> <源> / use <名> / remove <名>
+pmm self-update                  # 从镜像安装最新版 pmm+pdm（自动识别本机 os/arch）
 pmm list
 pmm help / version
 pmm install <pkg> -pd          # 安装到 D:\.pmm（可换成 -pc 回到 C 盘，-px 任意盘）

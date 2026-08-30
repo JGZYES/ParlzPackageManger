@@ -58,6 +58,25 @@ const char *pmm_os_name(PmmOS os) {
     }
 }
 
+const char *pmm_detect_arch(void) {
+#if defined(_WIN32)
+    /* Windows: x64 vs arm64 (ARM64 / AMD64 env) */
+    const char *p = getenv("PROCESSOR_ARCHITECTURE");
+    if (p && (strcmp(p, "ARM64") == 0 || strcmp(p, "arm64") == 0)) return "aarch64";
+    const char *w = getenv("PROCESSOR_ARCHITEW6432");
+    if (w && (strcmp(w, "ARM64") == 0)) return "aarch64";
+    return "amd64";
+#elif defined(__aarch64__) || defined(__arm64__)
+    return "aarch64";
+#elif defined(__x86_64__) || defined(_M_X64)
+    return "amd64";
+#elif defined(__i386__) || defined(__i686__) || defined(_M_IX86)
+    return "x86";
+#else
+    return "any";
+#endif
+}
+
 static void mkdir_p(const char *path) {
     char tmp[1024];
     strncpy(tmp, path, sizeof(tmp) - 1);
