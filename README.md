@@ -86,16 +86,18 @@ SHA 实现为纯 C 内置（FIPS 180-4），无外部依赖。
 
 ```ini
 # ~/.pmm/mirror.ini
-[官方]
-registry = https://mirror.example.com/packages    # registry 索引：{registry}/{包}.json
-download = https://ghfast.example-mirror.dev      # 下载前缀（gh-proxy 风格，接到原始 URL 前）
-api = https://api.mirror.example                  # git 主机 API 基地址（整体替换）
-priority = 10                                     # 越小越优先（apt 式）
+[main]
+registry = https://pmm.parlz.com/mirror/packages
+priority = 1
+
+[sz]
+registry = https://sz.pmm.parlz.com/mirror/packages
+priority = 20
 default = true
 
-[自建]
-registry = https://git.example.local/packages
-priority = 20
+# 其它字段（可选）：
+download = https://ghfast.example-mirror.dev      # 下载前缀（gh-proxy 风格，接到原始 URL 前）
+api = https://api.mirror.example                  # git 主机 API 基地址（整体替换）
 ```
 
 - `pmm install <包>` 会**按 priority 从小到大依次尝试**每个镜像的
