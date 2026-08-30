@@ -1,0 +1,36 @@
+{
+  "name": "pmm",
+  "version": "0.1.1",
+  "os": "windows",
+  "arch": "amd64",
+  "description": "PMM tools v0.1.1",
+  "variants": [
+    {
+      "version": "0.1.1",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.1-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-windows-amd64.pdm",
+      "sha256": "3358147db039e9dbd9fced004a25743fe5bcc889e0ebcaf535442ede93cceefb",
+      "description": "PMM tools (pmm+pdm) v0.1.1"
+    },
+    {
+      "version": "0.1.1",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.1-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-linux-amd64.pdm",
+      "sha256": "3d02ad8419fe8d2a45a4a692b1b94802173342ec9e51060267b70452695597cd",
+      "description": "PMM tools (pmm+pdm) v0.1.1"
+    },
+    {
+      "version": "0.1.1",
+      "os": "linux",
+      "arch": "aarch64",
+      "file": "0.1.1-linux-aarch64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-linux-aarch64.pdm",
+      "sha256": "51d3f3bccad6d05ab9cff794435a87f664570218b6c37f9ecf53b0783b4d141b",
+      "description": "PMM tools (pmm+pdm) v0.1.1"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "pmm",
+  "version": "0.1.1",
+  "file": "0.1.1-linux-aarch64.pdm",
+  "os": "linux",
+  "arch": "aarch64",
+  "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-linux-aarch64.pdm",
+  "sha256": "51d3f3bccad6d05ab9cff794435a87f664570218b6c37f9ecf53b0783b4d141b",
+  "description": "PMM tools (pmm+pdm) v0.1.1"
+}
