@@ -362,7 +362,7 @@ void pmm_add_to_path(void) {
     }
 #endif
 
-    /* append missing dirs */
+    /* append missing dirs (bounds-safe: never let size_t underflow) */
     char next[17000] = "";
     snprintf(next, sizeof(next), "%s", cur);
     int added = 0;
@@ -370,8 +370,13 @@ void pmm_add_to_path(void) {
         if (!list[i][0]) continue;
         if (path_has(next, list[i], ';') || path_has(next, list[i], ':')) continue;
         size_t l = strlen(next);
-        if (l && next[l-1] != ';' && next[l-1] != ':') strncat(next, ";", sizeof(next)-l-1);
-        strncat(next, list[i], sizeof(next)-strlen(next)-1);
+        /* ensure a separator between entries */
+        if (l && next[l-1] != ';' && next[l-1] != ':' && l + 1 < sizeof(next)) {
+            next[l] = ';'; next[l+1] = '\0'; l++;
+        }
+        size_t room = sizeof(next) - l - 1;
+        if (room <= 0) break;                 /* no space left: stop */
+        snprintf(next + l, room + 1, "%s", list[i]);
         added++;
         printf("pmm: adding to PATH: %s\n", list[i]);
     }
