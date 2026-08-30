@@ -110,7 +110,8 @@ priority = 20
 
 ```sh
 cd mirror
-python -m http.server 8080            # 或 nginx/apache 直接指向 mirror/ 目录
+php -S 0.0.0.0:8080                   # 浏览页 + 静态下载（PHP，无 router 参数）
+# 或 nginx/apache：DirectoryIndex index.php，.pdm 走静态文件
 ```
 
 - 目录约定：`packages/<包>.json`（latest，含 `variants`）、
