@@ -121,7 +121,9 @@ if (preg_match('#^/upload$#', $uri)) {
     else { http_response_code(405); echo 'method not allowed'; exit; }
 }
 
-if ($uri === '/' || $uri === '/index.html') send_file($ROOT . '/index.html', 'text/html; charset=utf-8');
+if ($uri === '/' || $uri === '/index.html' || $uri === '/index.php') {
+    send_file($ROOT . '/index.html', 'text/html; charset=utf-8');
+}
 if ($uri === '/packages.json' || $uri === '/api/packages.json') send_index();
 if ($uri === '/mirror.ini' || $uri === '/mirror.conf') { header('Content-Type: text/plain'); echo mirror_ini(); exit; }
 
