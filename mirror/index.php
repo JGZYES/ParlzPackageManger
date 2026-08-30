@@ -47,6 +47,7 @@ function pkg_meta($dir, $name) {
 function pkg_size($dir, $file) { $p = $dir . '/' . $file; return is_file($p) ? filesize($p) : 0; }
 
 function page_head($title) {
+    global $base;
     echo "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'>"
        . "<meta name='viewport' content='width=device-width,initial-scale=1'>"
        . "<title>" . esc($title) . " · PMM 镜像</title><style>"
