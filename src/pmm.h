@@ -17,6 +17,10 @@ void pmm_set_install_drive(const char *letter);
  * "/opt/pmm"). Config/cache/bin/root all live under it. Empty clears back. */
 void pmm_set_install_path(const char *path);
 
+/* 1 if an exact install path was given via -p <path>: packages deploy directly
+ * into that directory (files flattened), without a root/bin sub-folder. */
+int pmm_flat_mode(void);
+
 /* File-association record written to the per-user registry on install. */
 typedef struct {
     const char *progid;    /* e.g. "Node.JSFile" */
