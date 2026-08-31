@@ -45,7 +45,9 @@ void pmm_reg_uninstall_clear(const char *pkg);
 void pmm_set_self_path(const char *argv0);
 const char *pmm_self_path(void);
 
-#define PMM_VERSION "0.1.0"
+#ifndef PMM_VERSION
+#define PMM_VERSION "0.1.0"   /* overridden at build time with -DPMM_VERSION="..." */
+#endif
 
 typedef enum { OS_WINDOWS, OS_LINUX, OS_MACOS, OS_UNKNOWN } PmmOS;
 
