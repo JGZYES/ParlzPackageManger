@@ -13,6 +13,10 @@ void pmm_add_to_path(void);
  * clears back to the user-home default. Persisted across runs. */
 void pmm_set_install_drive(const char *letter);
 
+/* Set the install location to an exact absolute path (e.g. "D:\apps\pmm" or
+ * "/opt/pmm"). Config/cache/bin/root all live under it. Empty clears back. */
+void pmm_set_install_path(const char *path);
+
 /* File-association record written to the per-user registry on install. */
 typedef struct {
     const char *progid;    /* e.g. "Node.JSFile" */
@@ -41,7 +45,9 @@ void pmm_reg_uninstall_clear(const char *pkg);
 void pmm_set_self_path(const char *argv0);
 const char *pmm_self_path(void);
 
-#define PMM_VERSION "0.1.0"
+#ifndef PMM_VERSION
+#define PMM_VERSION "0.1.0"   /* overridden at build time with -DPMM_VERSION="..." */
+#endif
 
 typedef enum { OS_WINDOWS, OS_LINUX, OS_MACOS, OS_UNKNOWN } PmmOS;
 
