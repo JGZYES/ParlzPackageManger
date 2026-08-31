@@ -1,6 +1,6 @@
 {
   "name": "pmm",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "os": "windows",
   "arch": "amd64",
   "description": "PMM",
@@ -76,6 +76,42 @@
       "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.6-linux-amd64.pdm",
       "sha256": "d9aa04651151df1a0e7ffdec9da9922e838791219053cee4cd362af0dbe3a141",
       "description": "PMM v0.1.6"
+    },
+    {
+      "version": "0.1.7",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.7-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.7-windows-amd64.pdm",
+      "sha256": "0261a5c008b1c87dfff305bec865ed70d146cd7a8fe4244ac4dff0701e65bf33",
+      "description": "PMM v0.1.7"
+    },
+    {
+      "version": "0.1.7",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.7-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.7-linux-amd64.pdm",
+      "sha256": "63c930b6476bd17793ad248b8362cd07c8a171e2b3c696c448470854e70c2a9a",
+      "description": "PMM v0.1.7"
+    },
+    {
+      "version": "0.1.8",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.8-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.8-windows-amd64.pdm",
+      "sha256": "07ede942b6fb60eebd556c4488a66868aeae92b68ebab51d089f3cbbbff557d0",
+      "description": "PMM v0.1.8"
+    },
+    {
+      "version": "0.1.8",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.8-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.8-linux-amd64.pdm",
+      "sha256": "3e5ba4ac11a906d0ed1be72a98b31405568e9dfb880103781802b849122760e4",
+      "description": "PMM v0.1.8"
     }
   ]
 }
