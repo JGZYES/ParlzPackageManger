@@ -22,15 +22,22 @@
 #define PMM_PCLOSE_READ(p) pclose(p)
 #endif
 
-static char g_self_path[1400] = "";
+static char g_self_path[4096] = ""; /* >= PATH_MAX: realpath FORTIFY requires it */
 void pmm_set_self_path(const char *argv0) {
     if (!argv0 || !*argv0) return;
 #ifdef _WIN32
     if (_fullpath(g_self_path, argv0, sizeof(g_self_path)) == NULL)
         snprintf(g_self_path, sizeof(g_self_path), "%s", argv0);
 #else
-    if (realpath(argv0, g_self_path) == NULL)
+    /* realpath(_, NULL) allocates internally — no fixed-buffer overflow, and
+     * no FORTIFY __realpath_chk abort when the caller buffer is < PATH_MAX. */
+    char *rp = realpath(argv0, NULL);
+    if (rp) {
+        snprintf(g_self_path, sizeof(g_self_path), "%s", rp);
+        free(rp);
+    } else {
         snprintf(g_self_path, sizeof(g_self_path), "%s", argv0);
+    }
 #endif
 }
 const char *pmm_self_path(void) {
