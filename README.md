@@ -107,7 +107,7 @@ api = https://api.mirror.example                  # git 主机 API 基地址（�
 
 ## 镜像仓库（mirror/ 静态目录）
 
-`mirror/` 是一个**文件预览器 + 静态包仓库**：`index.php` 列出目录下所有文件（可点击下载），`packages/` 放 .pdm 包。用任意 PHP/静态服务器对外提供即可：
+`mirror/` 是一个**分级目录浏览器 + 静态包仓库**：`index.php` 一页只显示当前目录内容（文件夹/文件，可点进下级、可下载），当前目录有 README.md 会自动解析显示，背景纯黑/纯白（`?bg=white`）。
 
 ```sh
 cd mirror
