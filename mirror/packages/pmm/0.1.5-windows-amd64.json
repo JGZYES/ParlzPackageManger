@@ -1,0 +1,10 @@
+{
+  "name": "pmm",
+  "version": "0.1.5",
+  "file": "0.1.5-windows-amd64.pdm",
+  "os": "windows",
+  "arch": "amd64",
+  "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.5-windows-amd64.pdm",
+  "sha256": "ae5adbf6721ddc67342107d6f49d6fe697a574266cb06f46bdd213d1a31f7a8a",
+  "description": "PMM v0.1.5 (strncat fix)"
+}
