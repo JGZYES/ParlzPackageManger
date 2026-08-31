@@ -44,44 +44,11 @@ function breadcrumb($rel) {
     return $out;
 }
 
-/* ---------------- basic markdown renderer ---------------- */
-function md_inline($s) {
-    $s = en($s);
-    $s = preg_replace('/`([^`]+)`/', '<code>$1</code>', $s);
-    $s = preg_replace('/\*\*([^*]+)\*\*/', '<b>$1</b>', $s);
-    $s = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<a href="$2">$1</a>', $s);
-    return $s;
-}
-function md_render($text) {
-    $lines = explode("\n", $text);
-    $o = ''; $inList = false;
-    foreach ($lines as $line) {
-        $line = rtrim($line);
-        if ($line === '') { if ($inList) { $o .= "</ul>"; $inList = false; } continue; }
-        if (preg_match('/^#{1,6}\s+(.*)$/', $line, $m)) {
-            if ($inList) { $o .= "</ul>"; $inList = false; }
-            $l = strlen($m[0]) - strlen(preg_replace('/^#+/', '', $m[0]));
-            $l = min($l, 6);
-            $o .= "<h$l>" . md_inline($m[1]) . "</h$l>";
-        } elseif (preg_match('/^\s*[-*]\s+(.*)$/', $line, $m)) {
-            if (!$inList) { $o .= "<ul>"; $inList = true; }
-            $o .= "<li>" . md_inline($m[1]) . "</li>";
-        } elseif (preg_match('/^```/', $line)) {
-            if ($inList) { $o .= "</ul>"; $inList = false; }
-            $o .= "<pre>" . en(substr($line, 3)) . "</pre>";
-        } else {
-            if ($inList) { $o .= "</ul>"; $inList = false; }
-            $o .= "<p>" . md_inline($line) . "</p>";
-        }
-    }
-    if ($inList) $o .= "</ul>";
-    return $o;
-}
-
 /* ---------------- collect folder entries ---------------- */
 $dirs = array(); $files = array();
 foreach (scandir($cur) as $e) {
     if ($e === '.' || $e === '..' || $e[0] === '.' || $e === 'index.php') continue;
+    if (strcasecmp($e, 'README.md') === 0) continue; /* do not show README.md */
     if (is_dir($cur . '/' . $e)) $dirs[] = $e; else $files[] = $e;
 }
 sort($dirs); sort($files);
@@ -97,8 +64,7 @@ echo "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' con
    . $css
    . " h1{font-size:16px}a{text-decoration:none}a:hover{text-decoration:underline}code{font-family:monospace}"
    . " ul{list-style:none;padding-left:0}li{margin:3px 0}.sz{color:#888;font-size:12px;margin-left:6px}"
-   . " .bar{margin-bottom:12px;font-size:13px}.md{border:1px solid #444;border-radius:6px;padding:0 14px;margin-bottom:16px}"
-   . ($bg==='white' ? ' .md{border-color:#ccc}' : '')
+   . " .bar{margin-bottom:12px;font-size:13px}"
    . "</style></head><body>";
 
 echo "<h1>📁 PMM 镜像" . ($webRel ? " / " . en($webRel) : '') . "</h1>";
@@ -107,13 +73,7 @@ echo "<div class='bar'>" . breadcrumb($webRel)
    . " &nbsp;|&nbsp; <a href='" . ($bg === 'white' ? '?dir=' . rawurlencode($dirRel) : '?dir=' . rawurlencode($dirRel) . '&bg=white') . "'>"
    . ($bg === 'white' ? '◑ 黑底' : '◐ 白底') . "</a></div>";
 
-/* README.md in current folder, rendered */
-$mdPath = $cur . '/README.md';
-if (is_file($mdPath)) {
-    echo "<div class='md'>";
-    echo md_render(file_get_contents($mdPath));
-    echo "</div>";
-}
+/* README.md is intentionally NOT shown (removed by request) */
 
 echo "<ul>";
 if ($dirRel !== '') {
