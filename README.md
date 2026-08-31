@@ -107,8 +107,7 @@ api = https://api.mirror.example                  # git 主机 API 基地址（�
 
 ## 镜像仓库（mirror/ 静态目录）
 
-`mirror/` 现在只做一件事：**静态包仓库**（无网页、无上传），把 `packages/` 目录用
-任意静态文件服务器直接对外提供即可：
+`mirror/` 是一个**文件预览器 + 静态包仓库**：`index.php` 列出目录下所有文件（可点击下载），`packages/` 放 .pdm 包。用任意 PHP/静态服务器对外提供即可：
 
 ```sh
 cd mirror
