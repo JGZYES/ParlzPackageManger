@@ -86,14 +86,14 @@ SHA 实现为纯 C 内置（FIPS 180-4），无外部依赖。
 
 ```ini
 # ~/.pmm/mirror.ini
-[main]
-registry = https://pmm.parlz.com/mirror/packages
-priority = 1
-
 [sz]
 registry = https://sz.pmm.parlz.com/mirror/packages
-priority = 20
+priority = 1
 default = true
+
+[main]
+registry = https://pmm.parlz.com/mirror/packages
+priority = 20
 
 # 其它字段（可选）：
 download = https://ghfast.example-mirror.dev      # 下载前缀（gh-proxy 风格，接到原始 URL 前）
