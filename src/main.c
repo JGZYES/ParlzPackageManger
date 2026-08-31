@@ -16,6 +16,9 @@
  * Mirrors: ~/.pmm/mirror.ini | mirror.conf
  */
 #include <stdio.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -331,6 +334,10 @@ static int consume_drive_flag(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);   /* UTF-8 output so Chinese help/version isn't mojibake */
+    setvbuf(stdout, NULL, _IONBF, 0);
+#endif
     if (argc < 2) { print_help(); return 0; }
     pmm_set_self_path(argv[0]);
     argc = consume_drive_flag(argc, argv);
