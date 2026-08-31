@@ -320,6 +320,10 @@ static int consume_drive_flag(int argc, char **argv) {
                 r++; /* consume the drive arg too */
                 continue;
             }
+            /* -p <exact path>: install under this full address */
+            pmm_set_install_path(nxt);
+            r++;
+            continue;
         }
         argv[w++] = argv[r];
     }
