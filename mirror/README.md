@@ -31,8 +31,7 @@ mirror/
 cd mirror && php -S 0.0.0.0:8080
 ```
 
-- 打开 `http://host:8080/` → 包索引浏览页
-- `http://host:8080/?pkg=nodejs` → nodejs 各平台变体 + 下载 `.pdm`
+- 打开 `http://host:8080/` → 列出镜像目录下所有文件（点击即下载）
 - `http://host:8080/packages/<包>/<版本>-<平台>.pdm` → 直接下载文件
 
 Apache / Nginx 同理：`DirectoryIndex index.php`，`.pdm` 走静态文件即可。
