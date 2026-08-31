@@ -202,7 +202,8 @@ static void db_dirs(char *db, size_t dbs, char *root, size_t roots) {
     pmm_config_dir(home, sizeof(home) - 32);
     snprintf(db, dbs, "%s/installed", home);
     mkdir_p(db);
-    snprintf(root, roots, "%s/root", home);
+    if (pmm_flat_mode()) snprintf(root, roots, "%s", home);      /* -p <path> */
+    else snprintf(root, roots, "%s/root", home);
     mkdir_p(root);
 }
 
@@ -313,6 +314,44 @@ static void chdir_restore(void) {
     if (saved_cwd[0]) CHDIR(saved_cwd);
 }
 
+/* Move everything under <dir>/bin up into <dir>, then remove bin/. (C-level, so
+ * it works on Windows cmd too where `mv` doesn't exist.) */
+static void flatten_bin(const char *dir) {
+    char bindir[1200];
+    snprintf(bindir, sizeof(bindir), "%s/%s", dir, "bin");
+#ifdef _WIN32
+    char patt[1300];
+    snprintf(patt, sizeof(patt), "%s\\*", bindir);
+    struct _finddata_t fd;
+    intptr_t h = _findfirst(patt, &fd);
+    if (h != -1) {
+        do {
+            if (strcmp(fd.name, ".") == 0 || strcmp(fd.name, "..") == 0) continue;
+            char src[1400], dst[1400];
+            snprintf(src, sizeof(src), "%s\\%s", bindir, fd.name);
+            snprintf(dst, sizeof(dst), "%s\\%s", dir, fd.name);
+            rename(src, dst);
+        } while (_findnext(h, &fd) == 0);
+        _findclose(h);
+    }
+    RMDIR(bindir);
+#else
+    DIR *d = opendir(bindir);
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d)) != NULL) {
+            if (e->d_name[0] == '.') continue;
+            char src[1400], dst[1400];
+            snprintf(src, sizeof(src), "%s/%s", bindir, e->d_name);
+            snprintf(dst, sizeof(dst), "%s/%s", dir, e->d_name);
+            rename(src, dst);
+        }
+        closedir(d);
+        rmdir(bindir);
+    }
+#endif
+}
+
 int pdm_info(const char *pdmfile) {
     printf("pdm: %s\n", base_name(pdmfile));
     /* Copy into the pm dir + chdir, then use relative names (works with both
@@ -338,9 +377,13 @@ int pdm_install_file(const char *pdmfile) {
     }
     char home[1024], db[1024], root[1024], cmd[2600];
     pmm_config_dir(home, sizeof(home));
+    int flat = pmm_flat_mode();             /* -p <path>: deploy directly into that dir */
     snprintf(db, sizeof(db), "%s/installed", home);
     mkdir_p(db);
-    snprintf(root, sizeof(root), "%s/root", home);
+    if (flat)
+        snprintf(root, sizeof(root), "%s", home);
+    else
+        snprintf(root, sizeof(root), "%s/root", home);
     mkdir_p(root);
 
     /* Copy the package into the PM dir, chdir there, and run tar with ONLY
@@ -404,11 +447,17 @@ int pdm_install_file(const char *pdmfile) {
         chdir_restore(); remove(tmpname); return -1;
     }
 
-    /* extract data into root */
-    snprintf(cmd, sizeof(cmd), "tar -xzf \"%s/data.tar.gz\" -C \"root\"", stage);
+    /* extract data into root (relative target: cwd is already the pm dir) */
+    const char *tgt = flat ? "." : "root";
+    snprintf(cmd, sizeof(cmd), "tar -xzf \"%s/data.tar.gz\" -C \"%s\"", stage, tgt);
     if (system(cmd) != 0) {
         fprintf(stderr, "pdm: data extraction failed\n");
         chdir_restore(); remove(tmpname); return -1;
+    }
+
+    /* flat mode (-p <path>): move bin/* up into the address itself, drop bin/ */
+    if (flat) {
+        flatten_bin(".");   /* cwd = the install address in flat mode */
     }
 
     /* record file list + control in db */
@@ -423,8 +472,14 @@ int pdm_install_file(const char *pdmfile) {
         FILE *tf = PMM_POPEN_READ(ltcmd);
         if (tf) {
             char ln[2048];
-            while (fgets(ln, sizeof(ln), tf))
+            while (fgets(ln, sizeof(ln), tf)) {
+                if (flat) { /* reflection of the flatten: strip a leading bin/ */
+                    const char *q = ln;
+                    while (*q==' '||*q=='\t') q++;
+                    if (q[0]=='.'&&q[1]=='/'&&strncasecmp(q+2,"bin/",4)==0) { ln[0]='\0'; continue; }
+                }
                 fputs(ln, dbf);
+            }
             PMM_PCLOSE_READ(tf);
         } else {
             fprintf(stderr, "pdm: warning: could not record file list\n");
