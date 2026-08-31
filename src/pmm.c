@@ -134,6 +134,7 @@ void pmm_set_install_path(const char *path) {
     mkdir_p(g_base_path);
     printf("pmm: install path set to %s\n", g_base_path);
 }
+int pmm_flat_mode(void) { return g_base_path[0] ? 1 : 0; }
 
 /* Resolve the .pmm base dir: explicit drive override > persisted drive >
  * home/.pmm (when that drive is picked) > DEFAULT = D:\.pmm.
@@ -283,7 +284,8 @@ void pmm_add_to_path(void) {
     char home[1024];
     pmm_config_dir(home, sizeof(home));
     char base[1024];
-    snprintf(base, sizeof(base), "%s/root", home);
+    if (pmm_flat_mode()) snprintf(base, sizeof(base), "%s", home);   /* -p <path> */
+    else snprintf(base, sizeof(base), "%s/root", home);
 
     /* collect dirs: ~/.pmm/bin, ~/.pmm/root, and root subdirs holding executables */
     char list[160][1200];
