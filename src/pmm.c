@@ -98,10 +98,11 @@ static const char *home_dir(void) {
     return (h && *h) ? h : ".";
 }
 
-/* ---- install-drive override (e.g. "pmm install x -pd" -> D:\.pmm) ----
- * The chosen drive is persisted in the always-reachable home dir so later
- * commands remember it without needing the flag again. */
-static char g_drive[4] = ""; /* "D", or "" = use home */
+/* ---- install-location overrides ----
+ * Either a drive letter ("D" -> D:\.pmm) via -p<drive>, or an exact path
+ * ("D:\apps\pmm" / "/opt/pmm") via -p <path>. The path override wins. */
+static char g_drive[4] = "";   /* "D", or "" = use home */
+static char g_base_path[1024] = ""; /* exact install base, or "" */
 
 static const char *drive_state_path(char *buf, size_t size) {
     snprintf(buf, size, "%s/.pmm/install-drive", home_dir());
@@ -114,7 +115,6 @@ void pmm_set_install_drive(const char *letter) {
     if (c < 'A' || c > 'Z') return; /* only a single A-Z drive letter */
     g_drive[0] = c;
     g_drive[1] = '\0';
-    /* persist so it becomes the default for later runs */
     char state[1024];
     drive_state_path(state, sizeof(state));
     char dir[1024];
@@ -123,6 +123,16 @@ void pmm_set_install_drive(const char *letter) {
     FILE *f = fopen(state, "w");
     if (f) { fprintf(f, "%c", c); fclose(f); }
     printf("pmm: install drive set to %c:\n", c);
+}
+
+void pmm_set_install_path(const char *path) {
+    if (!path || !*path) { g_base_path[0] = '\0'; return; }
+    snprintf(g_base_path, sizeof(g_base_path), "%s", path);
+    /* strip trailing slashes */
+    size_t l = strlen(g_base_path);
+    while (l > 1 && (g_base_path[l-1] == '/' || g_base_path[l-1] == '\\')) g_base_path[--l] = '\0';
+    mkdir_p(g_base_path);
+    printf("pmm: install path set to %s\n", g_base_path);
 }
 
 /* Resolve the .pmm base dir: explicit drive override > persisted drive >
@@ -137,6 +147,10 @@ static char home_drive_letter(void) {
 }
 
 static const char *pmm_base_dir(char *buf, size_t size) {
+    if (g_base_path[0]) {                                     /* -p <exact path> */
+        snprintf(buf, size, "%s", g_base_path);
+        return buf;
+    }
     char drive[4] = "";
     if (g_drive[0]) {
         drive[0] = g_drive[0];
