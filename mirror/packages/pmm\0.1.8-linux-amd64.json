@@ -1,0 +1,10 @@
+{
+  "name": "pmm",
+  "version": "0.1.8",
+  "file": "0.1.8-linux-amd64.pdm",
+  "os": "linux",
+  "arch": "amd64",
+  "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.8-linux-amd64.pdm",
+  "sha256": "3e5ba4ac11a906d0ed1be72a98b31405568e9dfb880103781802b849122760e4",
+  "description": "PMM v0.1.8"
+}
