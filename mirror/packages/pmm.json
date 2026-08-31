@@ -3,8 +3,44 @@
   "version": "0.1.5",
   "os": "windows",
   "arch": "amd64",
-  "description": "PMM v0.1.5",
+  "description": "PMM (history kept)",
   "variants": [
+    {
+      "version": "0.1.0",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.0-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.0-windows-amd64.pdm",
+      "sha256": "1a5e835c18962c24f9b8ca48acab49208d9db9f97ddd6bc1cefed1d60daaa96e",
+      "description": "PMM v0.1.0"
+    },
+    {
+      "version": "0.1.0",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.0-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.0-linux-amd64.pdm",
+      "sha256": "e55d34f84c72d3f6c6386adce93f885673291372a10f512846eace4b5eae8496",
+      "description": "PMM v0.1.0"
+    },
+    {
+      "version": "0.1.1",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.1-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-windows-amd64.pdm",
+      "sha256": "3358147db039e9dbd9fced004a25743fe5bcc889e0ebcaf535442ede93cceefb",
+      "description": "PMM v0.1.1"
+    },
+    {
+      "version": "0.1.1",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.1-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-linux-amd64.pdm",
+      "sha256": "3d02ad8419fe8d2a45a4a692b1b94802173342ec9e51060267b70452695597cd",
+      "description": "PMM v0.1.1"
+    },
     {
       "version": "0.1.5",
       "os": "windows",
@@ -12,7 +48,7 @@
       "file": "0.1.5-windows-amd64.pdm",
       "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.5-windows-amd64.pdm",
       "sha256": "ae5adbf6721ddc67342107d6f49d6fe697a574266cb06f46bdd213d1a31f7a8a",
-      "description": "PMM v0.1.5 (strncat fix)"
+      "description": "PMM v0.1.5"
     },
     {
       "version": "0.1.5",
@@ -21,7 +57,7 @@
       "file": "0.1.5-linux-amd64.pdm",
       "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.5-linux-amd64.pdm",
       "sha256": "8be931447b664a467ebbb142008a87ffc7e2f30ea6a2e0d8980325b04f23bcbc",
-      "description": "PMM v0.1.5 (strncat fix)"
+      "description": "PMM v0.1.5"
     }
   ]
 }
