@@ -148,19 +148,25 @@ for ($r = 0; $r < $ROWS; $r++)
       <button class="tab" data-tab="macos">macOS</button>
     </div>
     <div class="code-box" data-pane="win" data-active="1">
-      <pre><code>curl -L -o pmm.exe https://github.com/JGZYES/ParlzPackageManger/releases/latest/download/pmm.exe
-pmm.exe -v</code></pre>
+      <pre><code># ZIP 下载（解压即用，pmm.exe 在压缩包内）
+curl -L -o pmm.zip https://pmm.parlz.com/downloads/pmm-<?php echo $VERSION; ?>-windows-amd64.zip
+# 解压后把 pmm.exe 所在目录加入 PATH，然后：
+pmm -v</code></pre>
       <button class="copy-btn" data-copy="win">复制</button>
     </div>
     <div class="code-box" data-pane="linux">
-      <pre><code>curl -L -o pmm https://github.com/JGZYES/ParlzPackageManger/releases/latest/download/pmm
-chmod +x pmm && sudo mv pmm /usr/local/bin/pmm
+      <pre><code># 方式一：sh 一键安装（自动下载二进制 + 加 PATH）
+curl -sSL https://pmm.parlz.com/install.sh | bash
+
+# 方式二：.deb 安装
+curl -L -o pmm.deb https://pmm.parlz.com/downloads/pmm_<?php echo $VERSION; ?>_amd64.deb
+sudo apt install ./pmm.deb
 pmm -v</code></pre>
       <button class="copy-btn" data-copy="linux">复制</button>
     </div>
     <div class="code-box" data-pane="macos">
-      <pre><code>curl -L -o pmm https://github.com/JGZYES/ParlzPackageManger/releases/latest/download/pmm
-chmod +x pmm && sudo mv pmm /usr/local/bin/pmm
+      <pre><code># sh 一键安装
+curl -sSL https://pmm.parlz.com/install.sh | bash
 pmm -v</code></pre>
       <button class="copy-btn" data-copy="macos">复制</button>
     </div>
@@ -172,17 +178,20 @@ pmm -v</code></pre>
     <h2 class="section-title">下载 <span class="accent">PMM</span></h2>
     <p class="section-sub">可从官方镜像站或 GitHub Release 获取。镜像地址不变。</p>
     <div class="dl-grid">
-      <a class="dl-card" href="mirror/packages/pmm/<?php echo $VERSION; ?>-windows-amd64.pdm" download>
-        <span class="dl-os">Windows</span><span class="dl-file">pmm-<?php echo $VERSION; ?>-windows-amd64.pdm</span><span class="dl-arrow">↓</span>
+      <a class="dl-card" href="downloads/pmm-<?php echo $VERSION; ?>-windows-amd64.zip" download>
+        <span class="dl-os">Windows</span><span class="dl-file">pmm-<?php echo $VERSION; ?>-windows-amd64.zip</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="mirror/packages/pmm/<?php echo $VERSION; ?>-linux-amd64.pdm" download>
-        <span class="dl-os">Linux</span><span class="dl-file">pmm-<?php echo $VERSION; ?>-linux-amd64.pdm</span><span class="dl-arrow">↓</span>
+      <a class="dl-card" href="downloads/pmm_<?php echo $VERSION; ?>_amd64.deb" download>
+        <span class="dl-os">Linux</span><span class="dl-file">pmm_<?php echo $VERSION; ?>_amd64.deb</span><span class="dl-arrow">↓</span>
+      </a>
+      <a class="dl-card" href="install.sh" download>
+        <span class="dl-os">Linux/macOS</span><span class="dl-file">install.sh · 一键安装</span><span class="dl-arrow">↓</span>
       </a>
       <a class="dl-card" href="https://github.com/JGZYES/ParlzPackageManger/releases/latest" target="_blank" rel="noopener">
         <span class="dl-os">全部</span><span class="dl-file">GitHub Releases / 源码</span><span class="dl-arrow">↗</span>
       </a>
     </div>
-    <p class="tips">也可用 <code>pmm install pmm</code> / <code>pmm install php</code> 直接从镜像源安装。</p>
+    <p class="tips">Linux 也可 <code>curl -sSL https://pmm.parlz.com/install.sh | bash</code>；<code>.pdm</code> 包仍可从镜像 <code>pmm install pmm</code> / <code>pmm install php</code> 安装。</p>
   </div>
 </section>
 

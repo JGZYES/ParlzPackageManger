@@ -22,3 +22,8 @@
 # still matches after the mirror moved to web/mirror/.
 !**/mirror/packages/
 !**/mirror/packages/**/*.pdm
+
+# installer downloads served at /downloads/ (committed so the site works)
+!web/downloads/
+!web/downloads/**/*.zip
+!web/downloads/**/*.deb

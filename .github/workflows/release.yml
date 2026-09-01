@@ -42,6 +42,47 @@ jobs:
             src/main.c src/json.c src/ini.c src/pmm.c src/http.c src/repo.c src/install.c \
             src/sha256.c src/sha1.c src/mirrors.c src/pdm.c
 
+      - name: Package installers
+        run: |
+          sudo apt-get update >/dev/null 2>&1
+          sudo apt-get install -y zip dpkg-dev xxd >/dev/null 2>&1 || true
+          VER=${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+          VER=${VER#v}
+
+          # -- install.sh helper (uploaded to the release, also served at /install.sh)
+          cp web/install.sh out/install.sh
+
+          # -- Windows: ZIP + self-extracting installer (embeds pmm.exe)
+          if [ -f out/pmm.exe ]; then
+            ( cd out && zip -q "pmm-${VER}-windows-amd64.zip" pmm.exe )
+            xxd -i -n pmm_payload out/pmm.exe > payload.h
+            x86_64-w64-mingw32-gcc -O2 -I . -DPMM_SETUP_VER=\"$VER\" \
+              -o "out/pmm-setup-${VER}.exe" src/win_setup.c -luser32 -ladvapi32
+            rm -f payload.h
+          fi
+
+          # -- Linux: .deb
+          if [ -f out/pmm ]; then
+            rm -rf pkg && mkdir -p pkg/DEBIAN pkg/usr/local/bin
+            cp out/pmm pkg/usr/local/bin/pmm
+            cat > pkg/DEBIAN/control <<EOF
+Package: pmm
+Version: $VER
+Section: devel
+Priority: optional
+Architecture: amd64
+Maintainer: PMM <packages@pmm.dev>
+Installed-Size: $(du -k pkg/usr/local/bin/pmm | cut -f1)
+Description: ParlzPackageManager (PMM) - cross-platform C package manager
+ A cross-platform (Windows/Linux/macOS) package manager written in C, with
+ apt-style multi-mirror (mirror.ini), git release installs, .pdm packages
+ and SHA-256/SHA-1 verification.
+EOF
+            ( cd pkg/usr/local/bin && md5sum pmm > ../DEBIAN/md5sums )
+            dpkg-deb --build --root-owner-group pkg "out/pmm_${VER}_amd64.deb"
+            rm -rf pkg
+          fi
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -53,7 +94,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            out/pmm${{ matrix.ext }}
+          files: out/*
           generate_release_notes: true
           name: PMM ${{ github.ref_name }}
