@@ -148,7 +148,7 @@ for ($r = 0; $r < $ROWS; $r++)
       <button class="tab" data-tab="macos">macOS</button>
     </div>
     <div class="code-box" data-pane="win" data-active="1">
-      <pre><code># ZIP 下载（解压即用，pmm.exe 在压缩包内）
+      <pre><code># ZIP 免安装版（解压即用，pmm.exe 在压缩包内）
 curl -L -o pmm.zip https://pmm.parlz.com/downloads/pmm-<?php echo $VERSION; ?>-windows-amd64.zip
 # 解压后把 pmm.exe 所在目录加入 PATH，然后：
 pmm -v</code></pre>
@@ -179,7 +179,7 @@ pmm -v</code></pre>
     <p class="section-sub">可从官方镜像站或 GitHub Release 获取。镜像地址不变。</p>
     <div class="dl-grid">
       <a class="dl-card" href="downloads/pmm-<?php echo $VERSION; ?>-windows-amd64.zip" download>
-        <span class="dl-os">Windows</span><span class="dl-file">pmm-<?php echo $VERSION; ?>-windows-amd64.zip</span><span class="dl-arrow">↓</span>
+        <span class="dl-os">Windows</span><span class="dl-file">pmm-<?php echo $VERSION; ?>-windows-amd64.zip · 免安装</span><span class="dl-arrow">↓</span>
       </a>
       <a class="dl-card" href="downloads/pmm_<?php echo $VERSION; ?>_amd64.deb" download>
         <span class="dl-os">Linux</span><span class="dl-file">pmm_<?php echo $VERSION; ?>_amd64.deb</span><span class="dl-arrow">↓</span>

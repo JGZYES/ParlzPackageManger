@@ -52,13 +52,11 @@ jobs:
           # -- install.sh helper (uploaded to the release, also served at /install.sh)
           cp web/install.sh out/install.sh
 
-          # -- Windows: ZIP + self-extracting installer (embeds pmm.exe)
+          # -- Windows: ZIP (the EXE setup wizard is a separate .NET build,
+          #    see win/installer/ — needs a Windows runner so it's built there)
           if [ -f out/pmm.exe ]; then
             ( cd out && zip -q "pmm-${VER}-windows-amd64.zip" pmm.exe )
-            xxd -i -n pmm_payload out/pmm.exe > payload.h
-            x86_64-w64-mingw32-gcc -O2 -I . -DPMM_SETUP_VER=\"$VER\" \
-              -o "out/pmm-setup-${VER}.exe" src/win_setup.c -luser32 -ladvapi32
-            rm -f payload.h
+            cp web/downloads/pmm-${VER}-windows-amd64.zip out/ 2>/dev/null || true
           fi
 
           # -- Linux: .deb
