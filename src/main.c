@@ -184,16 +184,32 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
     if (!asset && host == HOST_AUTO)
         fprintf(stderr, "pmm: could not reach a known release API for %s "
                 "(tried gitea/gitlab/github shapes)\n", repo);
-    repo_close(ctx);
     if (!asset) {
         if (host != HOST_AUTO)
             fprintf(stderr, "pmm: no suitable %s asset found in latest release of %s\n",
                     pmm_os_name(os), repo);
+        repo_close(ctx);
         return 1;
     }
     printf("pmm: %s -> %s (tag %s)\n", pmm_os_name(os), asset->name, asset->tag);
     int rc = install_file(asset->url, asset->name);
+
+    /* fallback: the first pick may have been a cross-platform/wrong asset
+     * (e.g. fzf's Android binary named without an OS hint). Re-fetch a clearly
+     * os-named one and install that instead. */
+    if (rc != 0 && host != HOST_AUTO) {
+        const char *sub = (os == OS_LINUX) ? "linux" : (os == OS_MACOS) ? "darwin" : NULL;
+        if (sub) {
+            ReleaseAsset *fb = repo_asset_matching(ctx, os, sub);
+            if (fb && strcmp(fb->name, asset->name) != 0) {
+                printf("pmm: retrying with %s (%s)\n", fb->name, pmm_os_name(os));
+                rc = install_file(fb->url, fb->name);
+                repo_asset_free(fb);
+            }
+        }
+    }
     repo_asset_free(asset);
+    repo_close(ctx);
     return rc == 0 ? 0 : 1;
 }
 

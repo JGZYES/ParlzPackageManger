@@ -28,6 +28,10 @@ RepoContext *repo_open(PmmHost host, const char *repo, const char *mirror_api_ba
  * release. Returns NULL if none found. Caller frees via repo_asset_free. */
 ReleaseAsset *repo_latest_asset(RepoContext *ctx, PmmOS os);
 
+/* Fallback: re-fetch the latest release and return the first os-matching asset
+ * whose name contains `name_sub` (e.g. "linux"). Caller frees via repo_asset_free. */
+ReleaseAsset *repo_asset_matching(RepoContext *ctx, PmmOS os, const char *name_sub);
+
 void repo_asset_free(ReleaseAsset *a);
 void repo_close(RepoContext *ctx);
 

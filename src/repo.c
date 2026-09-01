@@ -168,6 +168,38 @@ static int has_ext(const char *name, const char *ext) {
 }
 
 static int asset_is_junk(const char *name);
+
+/* Case-insensitive substring test (avoids relying on non-standard strcasestr). */
+static int ci_contains(const char *hay, const char *needle) {
+    size_t nl = strlen(needle);
+    if (!nl) return 0;
+    for (; *hay; hay++) {
+        size_t i;
+        for (i = 0; i < nl && hay[i]; i++)
+            if (tolower((unsigned char)hay[i]) != tolower((unsigned char)needle[i])) break;
+        if (i == nl) return 1;
+    }
+    return 0;
+}
+
+/* True if the asset filename clearly belongs to ANOTHER platform (e.g. an
+ * "android"/"windows"/"darwin" tar.gz must not be chosen for Linux). */
+static int name_hints_other_os(const char *name, PmmOS os) {
+    if (!name) return 0;
+    if (os == OS_LINUX)
+        return ci_contains(name,"android") || ci_contains(name,"windows") ||
+               ci_contains(name,"win32")  || ci_contains(name,"darwin") ||
+               ci_contains(name,"macos")  || ci_contains(name,"osx");
+    if (os == OS_WINDOWS)
+        return ci_contains(name,"linux") || ci_contains(name,"darwin") ||
+               ci_contains(name,"android") || ci_contains(name,"macos") ||
+               ci_contains(name,"osx");
+    if (os == OS_MACOS)
+        return ci_contains(name,"linux") || ci_contains(name,"windows") ||
+               ci_contains(name,"win32") || ci_contains(name,"android");
+    return 0;
+}
+
 int asset_matches_os(const char *filename, PmmOS os) {
     static const char *win_exts[] = { ".exe", ".msi", ".zip", ".7z", NULL };
     static const char *linux_exts[] = { ".deb", ".rpm", ".appimage", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2", ".pkg.tar.zst", NULL };
@@ -179,6 +211,9 @@ int asset_matches_os(const char *filename, PmmOS os) {
     case OS_MACOS:   exts = mac_exts; break;
     default: return 0;
     }
+    /* Never pick an asset whose name names a different platform (fzf publishes
+     * xxxx-android_<arch>.tar.gz; a Linux user must not get that). */
+    if (name_hints_other_os(filename, os)) return 0;
     for (int i = 0; exts[i]; i++)
         if (has_ext(filename, exts[i])) return 1;
     /* A bare (no-dot) binary counts on Linux/macOS — e.g. a release asset named
@@ -210,19 +245,20 @@ static ReleaseAsset *asset_from_json(const JsonValue *a, const char *tag) {
     return ra;
 }
 
-static ReleaseAsset *pick_from_assets_array(const JsonValue *assets, const char *tag, PmmOS os) {
+static ReleaseAsset *pick_from_assets_array(const JsonValue *assets, const char *tag, PmmOS os, const char *name_sub) {
     for (int i = 0; i < assets->count; i++) {
         JsonValue *a = json_at(assets, i);
         if (!a) continue;
         const char *name = json_str(a, "name");
         if (!name || asset_is_junk(name)) continue;
         if (!asset_matches_os(name, os)) continue;
+        if (name_sub && !ci_contains(name, name_sub)) continue;
         return asset_from_json(a, tag);
     }
     return NULL;
 }
 
-static ReleaseAsset *fetch_latest(const char *url, PmmHost host, PmmOS os) {
+static ReleaseAsset *fetch_latest(const char *url, PmmHost host, PmmOS os, const char *name_sub) {
     int status = 0;
     char *body = http_get(url, &status);
     if (!body || (status != 200 && status != 0)) {
@@ -248,6 +284,7 @@ static ReleaseAsset *fetch_latest(const char *url, PmmHost host, PmmOS os) {
                 const char *name = json_str(a, "name");
                 if (!name) name = json_str(a, "direct_asset_url");
                 if (!name || asset_is_junk(name) || !asset_matches_os(name, os)) continue;
+                if (name_sub && !ci_contains(name, name_sub)) continue;
                 found = calloc(1, sizeof(ReleaseAsset));
                 found->name = strdup(name);
                 found->url = strdup_or(json_str(a, "direct_asset_url"), json_str(a, "url") ? json_str(a, "url") : "");
@@ -255,7 +292,7 @@ static ReleaseAsset *fetch_latest(const char *url, PmmHost host, PmmOS os) {
             }
         }
     } else if (assets) {
-        found = pick_from_assets_array(assets, tag, os);
+        found = pick_from_assets_array(assets, tag, os, name_sub);
     }
 
     json_free(root);
@@ -276,20 +313,20 @@ ReleaseAsset *repo_latest_asset(RepoContext *ctx, PmmOS os) {
         ReleaseAsset *a = NULL;
         if (origin) {
             snprintf(url, sizeof(url), "%s/api/v1/repos/%s/releases/latest", origin, norm);
-            if ((a = fetch_latest(url, HOST_GITEA, os))) { ctx->host = HOST_GITEA; return a; }
+            if ((a = fetch_latest(url, HOST_GITEA, os, NULL))) { ctx->host = HOST_GITEA; return a; }
             char *enc = url_encode(norm);
             snprintf(url, sizeof(url), "%s/api/v4/projects/%s/releases/permalink/latest", origin, enc);
             free(enc);
-            if ((a = fetch_latest(url, HOST_GITLAB, os))) { ctx->host = HOST_GITLAB; return a; }
+            if ((a = fetch_latest(url, HOST_GITLAB, os, NULL))) { ctx->host = HOST_GITLAB; return a; }
             if (strstr(origin, "github.com")) {
                 snprintf(url, sizeof(url), "https://api.github.com/repos/%s/releases/latest", norm);
-                if ((a = fetch_latest(url, HOST_GITHUB, os))) { ctx->host = HOST_GITHUB; return a; }
+                if ((a = fetch_latest(url, HOST_GITHUB, os, NULL))) { ctx->host = HOST_GITHUB; return a; }
             }
         } else {
             snprintf(url, sizeof(url), "https://api.github.com/repos/%s/releases/latest", norm);
-            if ((a = fetch_latest(url, HOST_GITHUB, os))) { ctx->host = HOST_GITHUB; return a; }
+            if ((a = fetch_latest(url, HOST_GITHUB, os, NULL))) { ctx->host = HOST_GITHUB; return a; }
             snprintf(url, sizeof(url), "https://gitlab.com/api/v4/projects/%s/releases/permalink/latest", url_encode(norm));
-            if ((a = fetch_latest(url, HOST_GITLAB, os))) { ctx->host = HOST_GITLAB; return a; }
+            if ((a = fetch_latest(url, HOST_GITLAB, os, NULL))) { ctx->host = HOST_GITLAB; return a; }
         }
         return NULL;
     }
@@ -302,7 +339,21 @@ ReleaseAsset *repo_latest_asset(RepoContext *ctx, PmmOS os) {
         snprintf(url, sizeof(url), "%s/releases/latest", ctx->api_url);
         break;
     }
-    return fetch_latest(url, ctx->host, os);
+    return fetch_latest(url, ctx->host, os, NULL);
+}
+
+/* (Re)fetch the latest release and return the first asset for this OS whose
+ * name contains `name_sub` (e.g. "linux"). Used as a fallback when the first
+ * pick turns out to be a cross-platform/wrong binary. Caller frees via
+ * repo_asset_free. */
+ReleaseAsset *repo_asset_matching(RepoContext *ctx, PmmOS os, const char *name_sub) {
+    if (!ctx || !ctx->api_url || !name_sub) return NULL;
+    char url[2048];
+    if (ctx->host == HOST_GITLAB)
+        snprintf(url, sizeof(url), "%s/releases/permalink/latest", ctx->api_url);
+    else
+        snprintf(url, sizeof(url), "%s/releases/latest", ctx->api_url);
+    return fetch_latest(url, ctx->host, os, name_sub);
 }
 
 void repo_asset_free(ReleaseAsset *a) {

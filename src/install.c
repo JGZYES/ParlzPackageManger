@@ -128,6 +128,28 @@ static int verify_checksums(const char *url, const char *path, const char *name)
     return 0;
 }
 
+/* A bare (no-dot) release asset on Unix must actually be usable on this
+ * platform — e.g. fzf publishes a bare 'fzf' for Android, which must not be
+ * installed on Linux. Uses `file`; be permissive where it isn't available. */
+static int native_binary_ok(const char *path, PmmOS os) {
+#ifdef _WIN32
+    (void)path; (void)os; return 1;   /* `file` isn't present on Windows */
+#else
+    if (os != OS_LINUX && os != OS_MACOS) return 1;
+    char cmd[1400], out[512] = "";
+    snprintf(cmd, sizeof(cmd), "file -b \"%s\" 2>/dev/null", path);
+    FILE *f = popen(cmd, "r");
+    if (!f) return 1;
+    if (fgets(out, sizeof(out), f) == NULL) out[0] = 0;
+    pclose(f);
+    if (!out[0]) return 1;                     /* `file` missing: allow */
+    if (strstr(out, "Android") || strstr(out, "for Android")) return 0;  /* android ELF */
+    if (strstr(out, "PE32")) return 0;         /* Windows binary */
+    if (strstr(out, "Mach-O")) return 0;       /* macOS binary */
+    return 1;
+#endif
+}
+
 int install_file(const char *url, const char *name) {
     PmmOS os = pmm_detect_os();
     char cache[1024], path[1200], cmd[2600];
@@ -168,6 +190,17 @@ int install_file(const char *url, const char *name) {
     }
 
     const char *bname = base_name(name);
+    /* A bare binary (no extension) must really be a native executable for this
+     * OS; otherwise refuse so the caller can fall back to the os-named asset. */
+    if (strchr(bname, '.') == NULL) {
+        printf("pmm: verifying %s is a native %s binary...\n", bname, pmm_os_name(os));
+        if (!native_binary_ok(path, os)) {
+            fprintf(stderr, "pmm: %s is not a usable %s binary; will fall back\n",
+                    bname, pmm_os_name(os));
+            remove(path);
+            return -1;
+        }
+    }
     char dest[1024];
     pmm_install_dir(dest, sizeof(dest));
 
