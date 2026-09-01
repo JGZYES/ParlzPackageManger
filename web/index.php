@@ -45,7 +45,12 @@ $map = [
 "                                                                                      ",
 ];
 $ROWS = count($map);
-$COLS = strlen($map[0]);
+/* Normalize every row to the same width so $map[$r][$c] never overflows
+ * (a shorter row otherwise triggers "Uninitialized string offset" warnings). */
+$COLS = 0;
+foreach ($map as $row) $COLS = max($COLS, strlen($row));
+for ($r = 0; $r < $ROWS; $r++) $map[$r] = str_pad($map[$r], $COLS);
+if ($COLS === 0) $COLS = 1;
 
 /* Land cell coordinates for the globe dot cloud */
 $dots = array();
@@ -60,7 +65,7 @@ for ($r = 0; $r < $ROWS; $r++)
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ParlzPackageManager · 跨平台 C 语言包管理器</title>
 <meta name="description" content="ParlzPackageManager (PMM) — 用 C 语言编写、跨 Windows/Linux/macOS 的包管理器，apt 式多镜像源、git release 安装、.pdm 打包格式、SHA-256 校验。">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0e14'/%3E%3Ctext x='16' y='23' font-size='17' font-family='monospace' fill='%233ea8ff' text-anchor='middle'%3Epmm%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23050505'/%3E%3Ctext x='16' y='23' font-size='17' font-family='monospace' fill='%23cfcfcf' text-anchor='middle'%3Epmm%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>

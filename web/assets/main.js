@@ -74,7 +74,7 @@
     window.addEventListener("resize", resize);
 
     var theta = 0, rafId = null;
-    var ACC = "#3ea8ff", OKC = "#2dd4a7";
+    var ACC = "#d8d8d8", OKC = "#ffffff";   /* grayscale palette */
 
     function draw(t) {
       theta += 0.0035;
@@ -84,14 +84,14 @@
       // sphere disc
       ctx.beginPath();
       ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
-      ctx.fillStyle = "rgba(62,168,255,0.045)";
+      ctx.fillStyle = "rgba(255,255,255,0.045)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(62,168,255,0.20)";
+      ctx.strokeStyle = "rgba(255,255,255,0.20)";
       ctx.lineWidth = 1;
       ctx.stroke();
 
       // faint equator + meridian rings for a globe feel
-      ctx.strokeStyle = "rgba(62,168,255,0.10)";
+      ctx.strokeStyle = "rgba(255,255,255,0.11)";
       ctx.beginPath(); ctx.ellipse(cx, cy, radius, radius * 0.98, 0, 0, 2 * Math.PI); ctx.stroke();
 
       function proj(lat, lon) {
@@ -108,7 +108,7 @@
         for (var i = 0; i < pts.length; i++) {
           var q = proj(pts[i].lat, pts[i].lon);
           if ((q.z > 0) !== front) continue;
-          ctx.fillStyle = front ? "rgba(62,168,255,0.85)" : "rgba(62,168,255,0.18)";
+          ctx.fillStyle = front ? "rgba(230,230,230,0.85)" : "rgba(230,230,230,0.16)";
           ctx.fillRect(cx + q.x * radius, cy - q.y * radius, 1.6, 1.6);
         }
       }
@@ -125,7 +125,7 @@
         ctx.fill();
         ctx.beginPath();
         ctx.arc(sx, sy, 4 + (1 - pulse) * 4, 0, 2 * Math.PI);
-        ctx.strokeStyle = "rgba(45,212,167," + (0.5 * pulse + 0.15) + ")";
+        ctx.strokeStyle = "rgba(255,255,255," + (0.5 * pulse + 0.15) + ")";
         ctx.lineWidth = 1.5;
         ctx.stroke();
       });
