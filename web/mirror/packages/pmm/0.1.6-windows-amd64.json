@@ -1,0 +1,10 @@
+{
+  "name": "pmm",
+  "version": "0.1.6",
+  "file": "0.1.6-windows-amd64.pdm",
+  "os": "windows",
+  "arch": "amd64",
+  "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.6-windows-amd64.pdm",
+  "sha256": "f71c26e4d4152bf613809977a8d0f58b6e7e1604b2c398cbab1c146e071fbebf",
+  "description": "PMM v0.1.6"
+}

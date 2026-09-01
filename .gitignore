@@ -11,13 +11,14 @@
 *.zip
 
 # mirror runtime logs
-mirror/server.log
+**/mirror/server.log
 
 # editors
 .vscode/
 .idea/
 
-# The mirror registry (mirror/packages) IS committed so the mirror is complete
-# and downloadable. Un-ignore the .pdm files there; *.pdm elsewhere stays ignored.
-!mirror/packages/
-!mirror/packages/**/*.pdm
+# The mirror registry is committed so the mirror is complete and downloadable.
+# Un-ignore the .pdm files there (*.pdm elsewhere stays ignored). Uses ** so it
+# still matches after the mirror moved to web/mirror/.
+!**/mirror/packages/
+!**/mirror/packages/**/*.pdm

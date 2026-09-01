@@ -86,14 +86,14 @@ SHA 实现为纯 C 内置（FIPS 180-4），无外部依赖。
 
 ```ini
 # ~/.pmm/mirror.ini
-[main]
-registry = https://pmm.parlz.com/mirror/packages
-priority = 1
-
 [sz]
 registry = https://sz.pmm.parlz.com/mirror/packages
-priority = 20
+priority = 1
 default = true
+
+[main]
+registry = https://pmm.parlz.com/mirror/packages
+priority = 20
 
 # 其它字段（可选）：
 download = https://ghfast.example-mirror.dev      # 下载前缀（gh-proxy 风格，接到原始 URL 前）
@@ -107,8 +107,7 @@ api = https://api.mirror.example                  # git 主机 API 基地址（�
 
 ## 镜像仓库（mirror/ 静态目录）
 
-`mirror/` 现在只做一件事：**静态包仓库**（无网页、无上传），把 `packages/` 目录用
-任意静态文件服务器直接对外提供即可：
+`mirror/` 是一个**分级目录浏览器 + 静态包仓库**：`index.php` 一页只显示当前目录内容（文件夹/文件，可点进下级、可下载），当前目录有 README.md 会自动解析显示，背景纯黑/纯白（`?bg=white`）。
 
 ```sh
 cd mirror

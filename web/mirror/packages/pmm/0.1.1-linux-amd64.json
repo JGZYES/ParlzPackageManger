@@ -6,5 +6,5 @@
   "arch": "amd64",
   "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-linux-amd64.pdm",
   "sha256": "3d02ad8419fe8d2a45a4a692b1b94802173342ec9e51060267b70452695597cd",
-  "description": "PMM tools (pmm+pdm) v0.1.1"
+  "description": "PMM v0.1.1"
 }
