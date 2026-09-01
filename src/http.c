@@ -29,7 +29,7 @@
 
 /* Read all output of `cmd` into a malloc'd buffer. */
 static char *run_capture(const char *cmd, size_t *out_len) {
-    FILE *f = PMM_POPEN(cmd, "rb");
+    FILE *f = PMM_POPEN(cmd, "r");
     if (!f) {
         if (getenv("PMM_DEBUG"))
             fprintf(stderr, "[http] popen(cmd) failed: errno=%d %s\n", errno, strerror(errno));
