@@ -1,14 +1,13 @@
 <?php
 /*
- * ParlzPackageManager (PMM) — official site
- * Dark, modern-minimal. Homepage shows a world map drawn with '+'/'-'
- * characters that lights up (island fill) on mouse hover.
- * Static PHP, no dependencies. Served from /web/ as the web root.
+ * ParlzPackageManager (PMM) — official site (dark, pure flat colors).
+ * Hero: left = PMM intro, right = rotating dotted Earth globe (canvas).
+ * A status panel monitors the SZ + HK mirror servers via status.php.
+ * Static PHP, no dependencies.
  */
 $VERSION = '0.2.6';
 
-/* World map, drawn coarse with '#'=land, ' '=ocean.
- * Rendering turns '#' into '+'/'-' so the map is literally built from + and -. */
+/* Coarse world map, '#'=land, ' '=ocean. Reused as the dot cloud on the globe. */
 $map = [
 "                                                                                      ",
 "                      ####################                                            ",
@@ -45,9 +44,14 @@ $map = [
 "                                                #    #    #   #  #                    ",
 "                                                                                      ",
 ];
-
 $ROWS = count($map);
 $COLS = strlen($map[0]);
+
+/* Land cell coordinates for the globe dot cloud */
+$dots = array();
+for ($r = 0; $r < $ROWS; $r++)
+    for ($c = 0; $c < $COLS; $c++)
+        if ($map[$r][$c] === '#') $dots[] = array($r, $c);
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -55,8 +59,8 @@ $COLS = strlen($map[0]);
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ParlzPackageManager · 跨平台 C 语言包管理器</title>
-<meta name="description" content="ParlzPackageManager (PMM) — 用 C 语言编写、跨 Windows/Linux/macOS 的包管理器，apt 式多镜像源、git release 安装、.pdm 打包格式、SHA-256/SHA-1 校验。">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1117'/%3E%3Ctext x='16' y='23' font-size='17' font-family='monospace' fill='%2356d4ff' text-anchor='middle'%3Epmm%3C/text%3E%3C/svg%3E">
+<meta name="description" content="ParlzPackageManager (PMM) — 用 C 语言编写、跨 Windows/Linux/macOS 的包管理器，apt 式多镜像源、git release 安装、.pdm 打包格式、SHA-256 校验。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0e14'/%3E%3Ctext x='16' y='23' font-size='17' font-family='monospace' fill='%233ea8ff' text-anchor='middle'%3Epmm%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -64,49 +68,54 @@ $COLS = strlen($map[0]);
 <nav class="nav">
   <a class="brand" href="#top"><span class="brand-mark">pmm</span><span class="brand-name">ParlzPackageManager</span></a>
   <ul class="nav-links">
-    <li><a href="#map">世界</a></li>
     <li><a href="#features">特性</a></li>
     <li><a href="#install">安装</a></li>
     <li><a href="#download">下载</a></li>
+    <li><a href="#status">服务状态</a></li>
     <li><a class="btn btn-sm" href="https://github.com/JGZYES/ParlzPackageManger" target="_blank" rel="noopener">GitHub ↗</a></li>
   </ul>
 </nav>
 
+<!-- Two-column hero: left intro / right dotted Earth globe -->
 <header id="top" class="hero">
   <div class="hero-inner">
-    <div class="hero-badge">v<?php echo $VERSION; ?> · C11 · Windows / Linux / macOS</div>
-    <h1>ParlzPackageManager <span class="accent">(PMM)</span></h1>
-    <p class="hero-tag">一个用 <strong>C 语言</strong>从零编写的跨平台包管理器。像 apt 一样多用镜像源，也能直接从 <strong>GitHub / GitLab / Gitea / Forgejo</strong> Release 装包。</p>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="#install">快速开始</a>
-      <a class="btn btn-ghost" href="https://github.com/JGZYES/ParlzPackageManger/releases/latest" target="_blank" rel="noopener">最新版 ↓</a>
+    <div class="hero-copy">
+      <div class="hero-badge">v<?php echo $VERSION; ?> · C11 · Windows / Linux / macOS</div>
+      <h1>ParlzPackageManager <span class="accent">(PMM)</span></h1>
+      <p class="hero-tag">一个用 <strong>C 语言</strong>从零编写的跨平台包管理器。像 apt 一样多用镜像源，也能直接从 <strong>GitHub / GitLab / Gitea / Forgejo</strong> Release 装包。</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#install">快速开始</a>
+        <a class="btn btn-ghost" href="https://github.com/JGZYES/ParlzPackageManger/releases/latest" target="_blank" rel="noopener">最新版 ↓</a>
+      </div>
+      <div class="hero-note">
+        <span class="dot ok"></span> 双镜像 · 深圳 / 香港 实时可用
+      </div>
+    </div>
+    <div class="hero-globe">
+      <canvas id="globe" aria-label="PMM 服务分布地球"></canvas>
+      <div class="globe-caption">全球镜像 · 深圳 · 香港</div>
     </div>
   </div>
 </header>
 
-<!-- ASCII world map (+/-) with hover island glow -->
-<section id="map" class="map-section">
-  <div class="map-wrap">
-    <div class="map-title">把世界装进一个包管理器</div>
-    <div id="worldmap" class="worldmap" data-rows="<?php echo $ROWS; ?>" data-cols="<?php echo $COLS; ?>">
-<?php
-for ($r = 0; $r < $ROWS; $r++) {
-    echo '      <div class="row">';
-    for ($c = 0; $c < $COLS; $c++) {
-        $ch = $map[$r][$c];
-        if ($ch === '#') {
-            /* alternate '+'/'-' by position for a textured +/- map */
-            $g = (($r + $c) % 2 === 0) ? '+' : '-';
-            echo '<span class="px land" data-r="' . $r . '" data-c="' . $c . '">' . $g . '</span>';
-        } else {
-            echo '<span class="px water"></span>';
-        }
-    }
-    echo "</div>\n";
-}
-?>
+<section id="status" class="section">
+  <div class="wrap">
+    <h2 class="section-title">服务 <span class="accent">状态</span></h2>
+    <p class="section-sub">实时监控 PMM 镜像服务器可用性与延迟（每 12 秒刷新）。</p>
+    <div class="status-grid" id="status-grid">
+      <div class="status-card">
+        <div class="status-head"><span class="pin">深圳</span><span class="status-dot" id="dot-0"></span></div>
+        <div class="status-ip">120.24.78.176</div>
+        <div class="status-host">sz.pmm.parlz.com</div>
+        <div class="status-meta" id="meta-0">检测中…</div>
+      </div>
+      <div class="status-card">
+        <div class="status-head"><span class="pin">香港</span><span class="status-dot" id="dot-1"></span></div>
+        <div class="status-ip">38.76.190.153</div>
+        <div class="status-host">pmm.parlz.com</div>
+        <div class="status-meta" id="meta-1">检测中…</div>
+      </div>
     </div>
-    <div class="map-hint">将光标移到大陆上，点亮整个世界</div>
   </div>
 </section>
 
@@ -193,10 +202,14 @@ pmm -v</code></pre>
       <a href="https://github.com/JGZYES/ParlzPackageManger/releases" target="_blank" rel="noopener">Releases</a>
       <a href="#top">回到顶部</a>
     </div>
-    <p class="footer-note">© 2026 ParlzPackageManager Project · Mirror: sz.pmm.parlz.com / pmm.parlz.com</p>
+    <p class="footer-note">© 2026 ParlzPackageManager Project · 深圳 120.24.78.176 / 香港 38.76.190.153</p>
   </div>
 </footer>
 
+<script>
+window.PMM_MAP = <?php echo json_encode($dots); ?>;
+window.PMM_DIMS = { rows: <?php echo $ROWS; ?>, cols: <?php echo $COLS; ?> };
+</script>
 <script src="assets/main.js"></script>
 </body>
 </html>
