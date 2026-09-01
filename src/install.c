@@ -351,7 +351,10 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         snprintf(url, sizeof(url), "%s/%s.json", bases[i], name);
         printf("pmm: looking up %s in mirror %s\n", name, bases[i]);
         body = http_get(url, &status);
-        if (body && status == 200) { used_base = bases[i]; break; }
+        /* accept any body that isn't an explicit not-found/server error; some
+         * curl builds don't emit the status marker the way we expect, so a
+         * non-NULL body with an indeterminate status should still be parsed */
+        if (body && status != 404 && status != 403 && status != 503) { used_base = bases[i]; break; }
         free(body); body = NULL;
     }
     if (!body) {
