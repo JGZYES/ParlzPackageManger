@@ -23,9 +23,32 @@ static int cmp_priority(const void *a, const void *b) {
     return ma->priority - mb->priority;
 }
 
+/* Write a default mirror.ini (built-in sz + main mirror) when no mirror
+ * config exists, so a fresh install works out-of-the-box from both mirrors. */
+void pmm_ensure_default_mirror(const char *dir) {
+    if (pmm_find_config(dir, "mirror")) return;    /* user already has a config */
+    char path[1200];
+    snprintf(path, sizeof(path), "%s/mirror.ini", dir);
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    fputs("# PMM default mirror.ini (auto-generated)\n"
+          "# priority 越小越优先；default=true 为未显式指定时的默认镜像。\n"
+          "#\n"
+          "[sz]\n"
+          "registry = https://sz.pmm.parlz.com/mirror/packages\n"
+          "priority = 1\n"
+          "default = true\n"
+          "\n"
+          "[main]\n"
+          "registry = https://pmm.parlz.com/mirror/packages\n"
+          "priority = 20\n", f);
+    fclose(f);
+}
+
 MirrorList *mirrors_load(void) {
     char dir[1024];
     pmm_config_dir(dir, sizeof(dir));
+    pmm_ensure_default_mirror(dir);
     char *path = pmm_find_config(dir, "mirror");
     if (!path) return calloc(1, sizeof(MirrorList));
     Ini *ini = ini_load(path);

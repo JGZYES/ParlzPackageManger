@@ -18,6 +18,8 @@ typedef struct {
 /* Load mirrors from ~/.pmm/mirror.ini / mirror.conf, sorted by priority. */
 MirrorList *mirrors_load(void);
 void mirrors_free(MirrorList *list);
+/* If no mirror config exists, write a default mirror.ini (sz + main). */
+void pmm_ensure_default_mirror(const char *dir);
 /* Mirror whose name matches the active selection in pmm config, or NULL. */
 Mirror *mirrors_active(const MirrorList *list, const char *active_name);
 

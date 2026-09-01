@@ -29,6 +29,7 @@
 #include "repo.h"
 #include "install.h"
 #include "pdm.h"
+#include "mirrors.h"
 
 typedef struct {
     char *registry_url;   /* package registry base URL */
@@ -90,6 +91,7 @@ static const char *mirror_section_name(void) {
 static void load_mirror(PmmConfig *cfg, MirrorSel *sel) {
     char dir[1024];
     pmm_config_dir(dir, sizeof(dir));
+    pmm_ensure_default_mirror(dir);
     memset(sel, 0, sizeof(*sel));
     char *path = pmm_find_config(dir, "mirror");
     if (!path) return;
