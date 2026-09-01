@@ -52,11 +52,9 @@ jobs:
           # -- install.sh helper (uploaded to the release, also served at /install.sh)
           cp web/install.sh out/install.sh
 
-          # -- Windows: ZIP (the EXE setup wizard is a separate .NET build,
-          #    see win/installer/ — needs a Windows runner so it's built there)
+          # -- Windows: ZIP
           if [ -f out/pmm.exe ]; then
             ( cd out && zip -q "pmm-${VER}-windows-amd64.zip" pmm.exe )
-            cp web/downloads/pmm-${VER}-windows-amd64.zip out/ 2>/dev/null || true
           fi
 
           # -- Linux: .deb
@@ -77,7 +75,7 @@ jobs:
               echo " apt-style multi-mirror (mirror.ini), git release installs, .pdm packages"
               echo " and SHA-256/SHA-1 verification."
             } > pkg/DEBIAN/control
-            ( cd pkg/usr/local/bin && md5sum pmm > ../DEBIAN/md5sums )
+            ( cd pkg/usr/local/bin && md5sum pmm ) | sed 's#  pmm#  usr/local/bin/pmm#' > pkg/DEBIAN/md5sums
             dpkg-deb --build --root-owner-group pkg "out/pmm_${VER}_amd64.deb"
             rm -rf pkg
           fi
