@@ -223,8 +223,14 @@ int install_file(const char *url, const char *name) {
         snprintf(cmd, sizeof(cmd),
                  "\"%s\" /S /VERYSILENT /quiet --silent 2>nul", pwin);
     } else {
-        /* unknown type for this OS: just leave in cache and copy if a single file */
-        snprintf(cmd, sizeof(cmd), "cp -f \"%s\" \"%s/\" 2>/dev/null || true", path, dest);
+        /* unknown type for this OS: copy the single file into the install dir;
+         * on Linux/macOS make it executable (bare ELF/script releases). */
+        if (os == OS_LINUX || os == OS_MACOS)
+            snprintf(cmd, sizeof(cmd),
+                     "cp -f \"%s\" \"%s/\" 2>/dev/null && chmod +x \"%s/%s\" 2>/dev/null || true",
+                     path, dest, dest, bname);
+        else
+            snprintf(cmd, sizeof(cmd), "cp -f \"%s\" \"%s/\" 2>/dev/null || true", path, dest);
     }
 
     printf("pmm: installing %s ...\n", bname);

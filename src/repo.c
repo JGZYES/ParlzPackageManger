@@ -167,6 +167,7 @@ static int has_ext(const char *name, const char *ext) {
     return 1;
 }
 
+static int asset_is_junk(const char *name);
 int asset_matches_os(const char *filename, PmmOS os) {
     static const char *win_exts[] = { ".exe", ".msi", ".zip", ".7z", NULL };
     static const char *linux_exts[] = { ".deb", ".rpm", ".appimage", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2", ".pkg.tar.zst", NULL };
@@ -180,6 +181,11 @@ int asset_matches_os(const char *filename, PmmOS os) {
     }
     for (int i = 0; exts[i]; i++)
         if (has_ext(filename, exts[i])) return 1;
+    /* A bare (no-dot) binary counts on Linux/macOS — e.g. a release asset named
+     * "pmm" that is an ELF. Skip obvious junk like README/LICENCE/checksums. */
+    if ((os == OS_LINUX || os == OS_MACOS) && strchr(filename, '.') == NULL
+        && !asset_is_junk(filename))
+        return 1;
     return 0;
 }
 
