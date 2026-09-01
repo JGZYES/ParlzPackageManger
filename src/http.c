@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #ifdef _WIN32
 #include <io.h>
@@ -29,10 +30,18 @@
 /* Read all output of `cmd` into a malloc'd buffer. */
 static char *run_capture(const char *cmd, size_t *out_len) {
     FILE *f = PMM_POPEN(cmd, "rb");
-    if (!f) return NULL;
+    if (!f) {
+        if (getenv("PMM_DEBUG"))
+            fprintf(stderr, "[http] popen(cmd) failed: errno=%d %s\n", errno, strerror(errno));
+        return NULL;
+    }
     size_t cap = 64 * 1024, len = 0;
     char *buf = malloc(cap);
-    if (!buf) { PMM_PCLOSE(f); return NULL; }
+    if (!buf) {
+        if (getenv("PMM_DEBUG"))
+            fprintf(stderr, "[http] malloc(%zu) failed: errno=%d %s\n", cap, errno, strerror(errno));
+        PMM_PCLOSE(f); return NULL;
+    }
     for (;;) {
         if (len + 4096 > cap) {
             cap *= 2;
