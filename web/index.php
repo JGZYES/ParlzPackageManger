@@ -110,14 +110,14 @@ for ($r = 0; $r < $ROWS; $r++)
     <div class="status-grid" id="status-grid">
       <div class="status-card">
         <div class="status-head"><span class="pin">深圳</span><span class="status-dot" id="dot-0"></span></div>
-        <div class="status-ip">120.24.78.176</div>
-        <div class="status-host">sz.pmm.parlz.com</div>
+        <div class="status-ip">sz.pmm.parlz.com</div>
+        <div class="status-host">https://sz.pmm.parlz.com/mirror/packages</div>
         <div class="status-meta" id="meta-0">检测中…</div>
       </div>
       <div class="status-card">
         <div class="status-head"><span class="pin">香港</span><span class="status-dot" id="dot-1"></span></div>
-        <div class="status-ip">38.76.190.153</div>
-        <div class="status-host">pmm.parlz.com</div>
+        <div class="status-ip">pmm.parlz.com</div>
+        <div class="status-host">https://pmm.parlz.com/mirror/packages</div>
         <div class="status-meta" id="meta-1">检测中…</div>
       </div>
     </div>
@@ -207,7 +207,7 @@ pmm -v</code></pre>
       <a href="https://github.com/JGZYES/ParlzPackageManger/releases" target="_blank" rel="noopener">Releases</a>
       <a href="#top">回到顶部</a>
     </div>
-    <p class="footer-note">© 2026 ParlzPackageManager Project · 深圳 120.24.78.176 / 香港 38.76.190.153</p>
+    <p class="footer-note">© 2026 ParlzPackageManager Project · 深圳 sz.pmm.parlz.com · 香港 pmm.parlz.com</p>
   </div>
 </footer>
 

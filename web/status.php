@@ -6,8 +6,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 $servers = [
-    ['name'=>'深圳', 'ip'=>'120.24.78.176', 'url'=>'https://sz.pmm.parlz.com/mirror/packages/pmm.json'],
-    ['name'=>'香港', 'ip'=>'38.76.190.153', 'url'=>'https://pmm.parlz.com/mirror/packages/pmm.json'],
+    ['name'=>'深圳', 'url'=>'https://sz.pmm.parlz.com/mirror/packages/pmm.json'],
+    ['name'=>'香港', 'url'=>'https://pmm.parlz.com/mirror/packages/pmm.json'],
 ];
 
 function probe($url) {
@@ -56,7 +56,6 @@ foreach ($servers as $s) {
     $st = probe($s['url']);
     $out[] = [
         'name'   => $s['name'],
-        'ip'     => $s['ip'],
         'online' => $st['online'],
         'code'   => $st['code'],
         'ms'     => $st['ms'],
