@@ -357,6 +357,8 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         snprintf(url, sizeof(url), "%s/%s.json", bases[i], name);
         printf("pmm: looking up %s in mirror %s\n", name, bases[i]);
         body = http_get(url, &status);
+        if (getenv("PMM_DEBUG")) fprintf(stderr, "[reg] %s -> body=%s status=%d\n",
+                                         bases[i], body ? "set" : "NULL", status);
         /* accept any body that isn't an explicit not-found/server error; some
          * curl builds don't emit the status marker the way we expect, so a
          * non-NULL body with an indeterminate status should still be parsed */

@@ -45,6 +45,7 @@ static char *run_capture(const char *cmd, size_t *out_len) {
         if (n == 0) break;
     }
     int rc = PMM_PCLOSE(f);
+    if (getenv("PMM_DEBUG")) fprintf(stderr, "[http] pclose rc=%d len=%zu\n", rc, len);
     if (rc != 0 && len == 0) { free(buf); return NULL; }
     if (out_len) *out_len = len;
     buf[len] = '\0';
@@ -66,6 +67,7 @@ static char *curl_capture(const char *args, const char *url, size_t *out_len) {
     }
     *p++ = '"';
     *p = '\0';
+    if (getenv("PMM_DEBUG")) fprintf(stderr, "[http] cmd: %s\n", cmd);
     char *res = run_capture(cmd, out_len);
     free(cmd);
     return res;
@@ -75,7 +77,10 @@ char *http_get(const char *url, int *status) {
     /* The status marker has NO backslash/newline, so it's immune to shell
      * interpretation differences:  body + "__PMM_HTTP_<code>" */
     size_t len = 0;
+    if (getenv("PMM_DEBUG")) fprintf(stderr, "[http] GET %s\n", url);
     char *body = curl_capture("-sSL --max-time 60 -w __PMM_HTTP_%{http_code}", url, &len);
+    if (getenv("PMM_DEBUG")) fprintf(stderr, "[http] captured len=%zu head=%.60s\n",
+                                     body ? len : 0, body ? body : "(null)");
     if (!body) return NULL;
     /* find the LAST marker occurrence, take the digits after it */
     const char *mk = "__PMM_HTTP_";
@@ -91,6 +96,7 @@ char *http_get(const char *url, int *status) {
             return NULL;
         }
         if (status) *status = code;
+        if (getenv("PMM_DEBUG")) fprintf(stderr, "[http] status=%d\n", code);
     } else {
         /* no marker (some curl/quirk): keep body, status unknown -> later logic
          * in install accepts non-404 bodies */
