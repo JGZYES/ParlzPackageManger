@@ -1,0 +1,10 @@
+#!/bin/sh
+# Placeholder executable for the example-pdm package.
+#
+# After `pmm pack examples/example-pdm example.pdm` and
+# `pmm install example.pdm`, this file is unpacked into the install root
+# and <root>/bin/ is added to PATH, so you can run `hello` directly.
+#
+# In a real package, replace this with your actual binary (or put the
+# platform-specific executable here for each variant you build).
+echo "hello from example-pdm (pmm package manager)"

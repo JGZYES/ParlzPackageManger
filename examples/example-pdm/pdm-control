@@ -1,0 +1,5 @@
+Package: example
+Version: 1.0.0
+Architecture: all
+Description: An example PMM package demonstrating the .pdm source layout
+Maintainer: PMM example <example@pmm.dev>
