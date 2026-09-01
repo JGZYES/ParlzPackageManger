@@ -72,22 +72,28 @@ static char *curl_capture(const char *args, const char *url, size_t *out_len) {
 }
 
 char *http_get(const char *url, int *status) {
-    /* -w appends the HTTP status code on its own last line */
+    /* The status marker has NO backslash/newline, so it's immune to shell
+     * interpretation differences:  body + "__PMM_HTTP_<code>" */
     size_t len = 0;
-    char *body = curl_capture("-sSL --max-time 60 -w \\n__PMM_HTTP__%{http_code}", url, &len);
+    char *body = curl_capture("-sSL --max-time 60 -w __PMM_HTTP_%{http_code}", url, &len);
     if (!body) return NULL;
-    char *marker = body + len - 1;
-    while (marker > body && *marker != '\n') marker--;
-    if (strncmp(marker + 1, "__PMM_HTTP__", 12) == 0) {
-        int code = atoi(marker + 13);
-        *marker = '\0'; /* strip marker + newline */
-        if (code <= 0) { /* 000 = failed transfer (reset/refused/DNS), not success */
+    /* find the LAST marker occurrence, take the digits after it */
+    const char *mk = "__PMM_HTTP_";
+    size_t mkl = strlen(mk);
+    char *last = NULL;
+    for (char *p = body; (p = strstr(p, mk)) != NULL; p += mkl) last = p;
+    if (last) {
+        int code = atoi(last + mkl);
+        *last = '\0'; /* strip the marker from the body */
+        if (code <= 0) { /* 000 = failed transfer, not success */
             if (status) *status = -1;
             free(body);
             return NULL;
         }
         if (status) *status = code;
     } else {
+        /* no marker (some curl/quirk): keep body, status unknown -> later logic
+         * in install accepts non-404 bodies */
         if (status) *status = -1;
     }
     return body;
