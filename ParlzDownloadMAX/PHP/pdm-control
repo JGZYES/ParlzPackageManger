@@ -1,0 +1,5 @@
+Package: php
+Version: 8.5.10
+Architecture: windows
+Description: PHP 8.5.10 for Windows x64
+Maintainer: PMM <packages@pmm.dev>

@@ -1,10 +1,28 @@
 {
   "name": "pmm",
-  "version": "0.1.1",
+  "version": "0.2.5",
   "os": "windows",
   "arch": "amd64",
-  "description": "PMM tools v0.1.1",
+  "description": "PMM",
   "variants": [
+    {
+      "version": "0.1.0",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.0-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.0-windows-amd64.pdm",
+      "sha256": "1a5e835c18962c24f9b8ca48acab49208d9db9f97ddd6bc1cefed1d60daaa96e",
+      "description": "PMM v0.1.0"
+    },
+    {
+      "version": "0.1.0",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.0-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.0-linux-amd64.pdm",
+      "sha256": "e55d34f84c72d3f6c6386adce93f885673291372a10f512846eace4b5eae8496",
+      "description": "PMM v0.1.0"
+    },
     {
       "version": "0.1.1",
       "os": "windows",
@@ -12,7 +30,7 @@
       "file": "0.1.1-windows-amd64.pdm",
       "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-windows-amd64.pdm",
       "sha256": "3358147db039e9dbd9fced004a25743fe5bcc889e0ebcaf535442ede93cceefb",
-      "description": "PMM tools (pmm+pdm) v0.1.1"
+      "description": "PMM v0.1.1"
     },
     {
       "version": "0.1.1",
@@ -21,16 +39,151 @@
       "file": "0.1.1-linux-amd64.pdm",
       "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-linux-amd64.pdm",
       "sha256": "3d02ad8419fe8d2a45a4a692b1b94802173342ec9e51060267b70452695597cd",
-      "description": "PMM tools (pmm+pdm) v0.1.1"
+      "description": "PMM v0.1.1"
     },
     {
-      "version": "0.1.1",
+      "version": "0.1.5",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.5-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.5-windows-amd64.pdm",
+      "sha256": "ae5adbf6721ddc67342107d6f49d6fe697a574266cb06f46bdd213d1a31f7a8a",
+      "description": "PMM v0.1.5"
+    },
+    {
+      "version": "0.1.5",
       "os": "linux",
-      "arch": "aarch64",
-      "file": "0.1.1-linux-aarch64.pdm",
-      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.1-linux-aarch64.pdm",
-      "sha256": "51d3f3bccad6d05ab9cff794435a87f664570218b6c37f9ecf53b0783b4d141b",
-      "description": "PMM tools (pmm+pdm) v0.1.1"
+      "arch": "amd64",
+      "file": "0.1.5-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.5-linux-amd64.pdm",
+      "sha256": "8be931447b664a467ebbb142008a87ffc7e2f30ea6a2e0d8980325b04f23bcbc",
+      "description": "PMM v0.1.5"
+    },
+    {
+      "version": "0.1.6",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.6-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.6-windows-amd64.pdm",
+      "sha256": "f71c26e4d4152bf613809977a8d0f58b6e7e1604b2c398cbab1c146e071fbebf",
+      "description": "PMM v0.1.6"
+    },
+    {
+      "version": "0.1.6",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.6-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.6-linux-amd64.pdm",
+      "sha256": "d9aa04651151df1a0e7ffdec9da9922e838791219053cee4cd362af0dbe3a141",
+      "description": "PMM v0.1.6"
+    },
+    {
+      "version": "0.1.7",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.7-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.7-windows-amd64.pdm",
+      "sha256": "0261a5c008b1c87dfff305bec865ed70d146cd7a8fe4244ac4dff0701e65bf33",
+      "description": "PMM v0.1.7"
+    },
+    {
+      "version": "0.1.7",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.7-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.7-linux-amd64.pdm",
+      "sha256": "63c930b6476bd17793ad248b8362cd07c8a171e2b3c696c448470854e70c2a9a",
+      "description": "PMM v0.1.7"
+    },
+    {
+      "version": "0.1.8",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.8-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.8-windows-amd64.pdm",
+      "sha256": "07ede942b6fb60eebd556c4488a66868aeae92b68ebab51d089f3cbbbff557d0",
+      "description": "PMM v0.1.8"
+    },
+    {
+      "version": "0.1.8",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.8-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.1.8-linux-amd64.pdm",
+      "sha256": "3e5ba4ac11a906d0ed1be72a98b31405568e9dfb880103781802b849122760e4",
+      "description": "PMM v0.1.8"
+    },
+    {
+      "version": "0.2.2",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.2.2-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.2-windows-amd64.pdm",
+      "sha256": "2d3ab13aba3c46aa8d6e7bddd8ec405a6cf5683f7c1b66bdb4d08b4367e7803c",
+      "description": "PMM v0.2.2"
+    },
+    {
+      "version": "0.2.2",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.2.2-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.2-linux-amd64.pdm",
+      "sha256": "86f9f2765e8711d28671a5ab19575821391f24ea66afcc701f3014b71190081f",
+      "description": "PMM v0.2.2"
+    },
+    {
+      "version": "0.2.3",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.2.3-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.3-windows-amd64.pdm",
+      "sha256": "2a7a81ec16f9def6ea8cf2ea95307307cf30dd9283dd6aa971d1c75936ac27de",
+      "description": "PMM v0.2.3"
+    },
+    {
+      "version": "0.2.3",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.2.3-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.3-linux-amd64.pdm",
+      "sha256": "0fa2075b0bb115c99d0a0c08b3802aee828ad9d4ef0e70f3a4834f1774cd327f",
+      "description": "PMM v0.2.3"
+    },
+    {
+      "version": "0.2.4",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.2.4-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.4-windows-amd64.pdm",
+      "sha256": "b5cd5cd196561e945f28c16722015193e2e12bc629927736ed2753632dd83d2b",
+      "description": "PMM v0.2.4"
+    },
+    {
+      "version": "0.2.4",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.2.4-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.4-linux-amd64.pdm",
+      "sha256": "e70f6cc79fb79fabbf2719fef047cdb6c513af83114ae4e9ac888d449313dfea",
+      "description": "PMM v0.2.4"
+    },
+    {
+      "version": "0.2.5",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.2.5-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.5-windows-amd64.pdm",
+      "sha256": "ed000d51e65f5e9e802598d11f7599f3903139c4c00e5b0a961c70480ffb5f19",
+      "description": "PMM v0.2.5"
+    },
+    {
+      "version": "0.2.5",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.2.5-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/pmm/0.2.5-linux-amd64.pdm",
+      "sha256": "f96ea551646611959e3cb550f7a211bf467dd047da9c5ca9f0a38e42f288a2ad",
+      "description": "PMM v0.2.5"
     }
   ]
 }
