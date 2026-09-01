@@ -63,19 +63,20 @@ jobs:
           if [ -f out/pmm ]; then
             rm -rf pkg && mkdir -p pkg/DEBIAN pkg/usr/local/bin
             cp out/pmm pkg/usr/local/bin/pmm
-            cat > pkg/DEBIAN/control <<EOF
-Package: pmm
-Version: $VER
-Section: devel
-Priority: optional
-Architecture: amd64
-Maintainer: PMM <packages@pmm.dev>
-Installed-Size: $(du -k pkg/usr/local/bin/pmm | cut -f1)
-Description: ParlzPackageManager (PMM) - cross-platform C package manager
- A cross-platform (Windows/Linux/macOS) package manager written in C, with
- apt-style multi-mirror (mirror.ini), git release installs, .pdm packages
- and SHA-256/SHA-1 verification.
-EOF
+            SIZE=$(du -k pkg/usr/local/bin/pmm | cut -f1)
+            {
+              echo "Package: pmm"
+              echo "Version: $VER"
+              echo "Section: devel"
+              echo "Priority: optional"
+              echo "Architecture: amd64"
+              echo "Maintainer: PMM <packages@pmm.dev>"
+              echo "Installed-Size: $SIZE"
+              echo "Description: ParlzPackageManager (PMM) - cross-platform C package manager"
+              echo " A cross-platform (Windows/Linux/macOS) package manager written in C, with"
+              echo " apt-style multi-mirror (mirror.ini), git release installs, .pdm packages"
+              echo " and SHA-256/SHA-1 verification."
+            } > pkg/DEBIAN/control
             ( cd pkg/usr/local/bin && md5sum pmm > ../DEBIAN/md5sums )
             dpkg-deb --build --root-owner-group pkg "out/pmm_${VER}_amd64.deb"
             rm -rf pkg
