@@ -71,6 +71,16 @@ function gh_api(string $url): array {
     $d = json_decode((string)$json, true);
     return is_array($d) ? $d : [];
 }
+/* Prefer a local copy of a release asset on this server; fall back to GitHub. */
+function local_asset(string $name): ?string {
+    foreach ([__DIR__ . '/downloads/' . $name, __DIR__ . '/mirror/packages/pmm/' . $name] as $p) {
+        if (@is_file($p)) {
+            $base = realpath(__DIR__);
+            return '/' . str_replace('\\', '/', substr(str_replace('\\', '/', realpath($p)), strlen($base) + 1));
+        }
+    }
+    return null;
+}
 function render_releases(): void {
     $rels = gh_api('https://api.github.com/repos/JGZYES/ParlzPackageManger/releases?per_page=30');
     if (!$rels) { echo '<div class="tips">无法获取 Releases（网络或 API 受限）。</div>'; return; }
@@ -97,7 +107,8 @@ function render_releases(): void {
         <?php if ($assets): ?>
         <div class="rel-assets">
           <?php foreach ($assets as $a): ?>
-            <a class="rel-asset" href="<?php echo esc($a['browser_download_url'] ?? '#'); ?>" target="_blank" rel="noopener">
+            <?php $local = local_asset((string)($a['name'] ?? '')); $href = $local ?: ($a['browser_download_url'] ?? '#'); ?>
+            <a class="rel-asset<?php echo $local ? ' local' : ''; ?>" href="<?php echo esc($href); ?>" target="_blank" rel="noopener">
               <?php echo esc($a['name'] ?? 'asset'); ?> <span class="rel-size"><?php echo isset($a['size']) ? fmt_size((int)$a['size']) : ''; ?></span>
             </a>
           <?php endforeach; ?>

@@ -227,3 +227,5 @@ code{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Co
 .rel-asset{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:ui-monospace,monospace;color:var(--text);text-decoration:none}
 .rel-asset:hover{border-color:#fff;color:#fff}
 .rel-size{color:var(--dim);margin-left:6px}
+.rel-asset.local{color:#fff;border-color:#fff}
+.rel-asset.local::before{content:"·";margin-right:4px}
