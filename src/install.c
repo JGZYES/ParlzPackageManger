@@ -150,6 +150,8 @@ static int native_binary_ok(const char *path, PmmOS os) {
 #endif
 }
 
+static int install_path(const char *path, const char *name);
+
 int install_file(const char *url, const char *name) {
     char cache[1024], path[1200];
     pmm_cache_dir(cache, sizeof(cache));
