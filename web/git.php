@@ -19,7 +19,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'init') {
         $cmd = 'git clone --depth 1 ' . escapeshellarg($REPO_URL) . ' ' . escapeshellarg($REPO_DIR) . ' 2>&1';
         $out = (string)@shell_exec($cmd);
         if (is_dir($REPO_DIR . '/.git')) echo 'OK';
-        else echo '克隆失败：' . substr($out, 0, 220) . "\n（请确保 PHP 对 ' . $REPO_DIR . ' 可写：chmod -R 775 ' . $REPO_DIR . ' 或其父目录；或设 PMM_SRC_DIR）';
+        else echo '克隆失败：' . substr($out, 0, 220) . "\n（请确保 PHP 对 " . $REPO_DIR . " 可写：chmod -R 775 " . $REPO_DIR . " 或其父目录；或设 PMM_SRC_DIR）";
     } else {
         $out = (string)@shell_exec('git -C ' . escapeshellarg($REPO_DIR) . ' pull --depth 1 2>&1');
         echo 'OK (pull: ' . substr(trim($out), 0, 80) . ')';
