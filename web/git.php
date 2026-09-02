@@ -7,16 +7,28 @@ define('PMM_SITE', 1);
 require __DIR__ . '/_common.php';
 
 $REPO_URL = 'https://github.com/JGZYES/ParlzPackageManger.git';
-$REPO_DIR = __DIR__ . '/repo';            /* local stored clone (gitignored) */
+/* Choose a PHP-writable location for the local repo clone (the web root may be
+ * owned by root, so PHP/php-fpm often can't create web/repo). */
+function pick_repo_dir(): string {
+    $env = getenv('PMM_SRC_DIR');
+    if ($env && (is_dir($env) || @mkdir($env, 0775, true))) return $env;
+    $local = __DIR__ . '/repo';
+    if (is_dir($local) || @mkdir($local, 0775, true)) return $local;
+    $tmp = sys_get_temp_dir() . '/pmm-src';
+    @mkdir($tmp, 0775, true);
+    return $tmp;
+}
+$REPO_DIR = pick_repo_dir();
 
 /* handle the one-click clone/pull early (no page output yet) */
 if (isset($_GET['action']) && $_GET['action'] === 'init') {
     header('Content-Type: text/plain; charset=utf-8');
-    if (!is_dir($REPO_DIR)) @mkdir($REPO_DIR, 0755, true);
+    if (!is_dir($REPO_DIR)) @mkdir($REPO_DIR, 0775, true);
     if (!is_dir($REPO_DIR . '/.git')) {
         $cmd = 'git clone --depth 1 ' . escapeshellarg($REPO_URL) . ' ' . escapeshellarg($REPO_DIR) . ' 2>&1';
         $out = (string)@shell_exec($cmd);
-        echo is_dir($REPO_DIR . '/.git') ? 'OK' : '克隆失败：' . substr($out, 0, 200);
+        if (is_dir($REPO_DIR . '/.git')) echo 'OK';
+        else echo '克隆失败：' . substr($out, 0, 220) . "\n（已尝试写入 " . $REPO_DIR . '）';
     } else {
         $out = (string)@shell_exec('git -C ' . escapeshellarg($REPO_DIR) . ' pull --depth 1 2>&1');
         echo 'OK (pull: ' . substr(trim($out), 0, 80) . ')';
@@ -79,7 +91,7 @@ pmm_header('source', '源码浏览');
 <?php if (!$repo_ok): ?>
     <div class="gh-card">
       <div class="gh-repo">初始化本地源码仓库</div>
-      <p class="src-clone-note">在服务器 <code><?php echo esc($REPO_DIR); ?></code> 存放一份 PMM 仓库（git clone），页面即自动变为 GitHub 风格源码浏览。可用下面命令：</p>
+      <p class="src-clone-note">页面用 PHP 可写目录 <code><?php echo esc($REPO_DIR); ?></code> 存放仓库副本。若服务器 web 根对 PHP 不可写，会在 <code>/tmp</code> 类的临时目录存一份（重启可能失效）。可改用环境变量 <code>PMM_SRC_DIR</code> 指定持久可写目录；或 <code>chmod 775</code> 仓库目录。初始化命令：</p>
       <pre class="gh-code"><code>git clone --depth 1 <?php echo esc($REPO_URL); ?> <?php echo esc($REPO_DIR); ?></code></pre>
       <div style="margin-top:12px">
         <button class="btn btn-sm" id="git-now" type="button">在线初始化 / 更新</button>
