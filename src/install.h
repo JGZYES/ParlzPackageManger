@@ -6,6 +6,10 @@
  * name is the asset file name used to decide the install method. */
 int install_file(const char *url, const char *name);
 
+/* Install a local file path according to its extension — e.g.
+ * `pmm install -dpkg foo.deb` (Linux) or `pmm install -msi foo.msi` (Windows). */
+int install_local_file(const char *path);
+
 /* Install from a remote registry (apt-style multi-mirror fallback):
  * looks up package `name` in the configured registry mirrors by priority.
  * If `version` is non-NULL, fetches {registry}/{name}/{version}.json, otherwise

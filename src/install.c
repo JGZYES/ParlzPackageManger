@@ -151,8 +151,7 @@ static int native_binary_ok(const char *path, PmmOS os) {
 }
 
 int install_file(const char *url, const char *name) {
-    PmmOS os = pmm_detect_os();
-    char cache[1024], path[1200], cmd[2600];
+    char cache[1024], path[1200];
     pmm_cache_dir(cache, sizeof(cache));
     snprintf(path, sizeof(path), "%s/%s", cache, name);
 
@@ -189,6 +188,17 @@ int install_file(const char *url, const char *name) {
         return -1;
     }
 
+    return install_path(path, name);
+}
+
+/* Install an already-local file path by its extension. Shared by downloads
+ * (install_file) and local `pmm install -dpkg/-msi <file>` / `install file.deb`.
+ * Returns 0 on success. */
+static int install_path(const char *path, const char *name) {
+    PmmOS os = pmm_detect_os();
+    char dest[1024];
+    pmm_install_dir(dest, sizeof(dest));
+
     const char *bname = base_name(name);
     /* A bare binary (no extension) must really be a native executable for this
      * OS; otherwise refuse so the caller can fall back to the os-named asset. */
@@ -197,18 +207,16 @@ int install_file(const char *url, const char *name) {
         if (!native_binary_ok(path, os)) {
             fprintf(stderr, "pmm: %s is not a usable %s binary; will fall back\n",
                     bname, pmm_os_name(os));
-            remove(path);
             return -1;
         }
     }
-    char dest[1024];
-    pmm_install_dir(dest, sizeof(dest));
 
-    /* forward-slash clone of the cached path (native exes/tools accept it and the
+    /* forward-slash clone of the path (native exes/tools accept it and the
      * git-bash shell won't mangle a command word like "C:/...") */
     char pwin[1200];
     snprintf(pwin, sizeof(pwin), "%s", path);
     for (char *q = pwin; *q; q++) if (*q == '\\') *q = '/';
+    char cmd[2600];
 
     /* .pdm packages are installed through the deb-like manager */
     if (has_suffix(bname, ".pdm") || has_suffix(bname, ".PDM")) {
@@ -274,6 +282,17 @@ int install_file(const char *url, const char *name) {
     printf("pmm: installed %s\n", bname);
     pmm_add_to_path();
     return 0;
+}
+
+/* Install a local file by its extension — e.g. `pmm install -dpkg foo.deb`
+ * (Linux) or `pmm install -msi foo.msi` (Windows). Returns 0 on success. */
+int install_local_file(const char *path) {
+    if (!path || !*path) { fprintf(stderr, "pmm: empty file path\n"); return -1; }
+    FILE *chk = fopen(path, "rb");
+    if (!chk) { fprintf(stderr, "pmm: cannot open file: %s\n", path); return -1; }
+    fclose(chk);
+    printf("pmm: installing local file %s\n", path);
+    return install_path(path, path);
 }
 
 /* ---------- python-style version selection (==,>=,<=,>,<,!= , comma list) ---------- */

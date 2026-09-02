@@ -138,6 +138,19 @@ static PmmHost host_from_name(const char *h) {
     return HOST_UNKNOWN;
 }
 
+/* True if the filename has a known auto-installable extension (local packages). */
+static int has_installer_ext(const char *s) {
+    static const char *exts[] = { ".deb", ".rpm", ".appimage", ".msi", ".exe", ".zip",
+                                  ".tgz", ".tar.gz", ".tar.xz", ".tar.bz2", ".7z",
+                                  ".dmg", ".pkg", ".pkg.tar.zst", NULL };
+    size_t l = strlen(s);
+    for (int i = 0; exts[i]; i++) {
+        size_t el = strlen(exts[i]);
+        if (l >= el && strcmp(s + l - el, exts[i]) == 0) return 1;
+    }
+    return 0;
+}
+
 /* <flag> <repo-ish> [--host <name>] */
 static int cmd_install_git(int argc, char **argv, const char *flag) {
     const char *repo = NULL;
@@ -397,15 +410,21 @@ int main(int argc, char **argv) {
                           strcmp(argv[2], "--forgejo") == 0))
             return cmd_install_git(argc - 3, argv + 3, argv[2] + 2);
     if (argc < 3) {
-        fprintf(stderr, "pmm: usage: pmm install <pkg|file.pdm> [...] | pmm install --git <repo>\n");
+        fprintf(stderr, "pmm: usage: pmm install <pkg|file.deb|file.msi|file.pdm> [pkg2 ...]\n"
+                        "           | pmm install -dpkg <x.deb>   install a .deb (Linux)\n"
+                        "           | pmm install -msi <x.msi>    install an .msi (Windows)\n"
+                        "           | pmm install --git <repo>\n");
         return 1;
     }
     /* collect one or more package arguments (each may carry an inline version
      * spec like nodejs>=24,<25); optional -v/--version applies to a single one */
     const char *version = NULL;
+    int forced = 0;   /* 1 = -dpkg, 2 = -msi (install a local package by type) */
     const char *items[64]; int ni = 0;
     for (int i = 2; i < argc; i++) {
         const char *a = argv[i];
+        if (strcmp(a, "-dpkg") == 0) { forced = 1; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
+        if (strcmp(a, "-msi") == 0)  { forced = 2; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
         if (strncmp(a, "-v", 2) == 0 && a[2]) { version = a + 2; continue; }
         if (strcmp(a, "-v") == 0 && i + 1 < argc) { version = argv[++i]; continue; }
         if (strcmp(a, "--version") == 0 && i + 1 < argc) { version = argv[++i]; continue; }
@@ -441,6 +460,13 @@ int main(int argc, char **argv) {
         size_t la = strlen(pkg);
         if (la > 4 && (strcmp(pkg + la - 4, ".pdm") == 0 || strcmp(pkg + la - 4, ".PDM") == 0)) {
             if (pdm_install_file(pkg) == 0) ok++; else fprintf(stderr, "pmm: failed to install %s\n", pkg);
+            continue;
+        }
+        /* local file install: forced -dpkg/-msi, or an existing installer file
+         * (e.g. `pmm install foo.deb` / `pmm install foo.msi`) */
+        if (forced == 1 || forced == 2 || has_installer_ext(pkg)) {
+            if (install_local_file(pkg) == 0) ok++;
+            else fprintf(stderr, "pmm: failed to install %s\n", pkg);
             continue;
         }
         if (install_from_registry(pkg, spec[0] ? spec : NULL, mirror.name) == 0) ok++;
