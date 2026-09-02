@@ -73,10 +73,12 @@ function gh_api(string $url): array {
 }
 /* Prefer a local copy of a release asset on this server; fall back to GitHub. */
 function local_asset(string $name): ?string {
-    foreach ([__DIR__ . '/downloads/' . $name, __DIR__ . '/mirror/packages/pmm/' . $name] as $p) {
+    $cands = [__DIR__ . '/downloads/' . $name, __DIR__ . '/mirror/packages/pmm/' . $name, __DIR__ . '/' . $name];
+    $base = realpath(__DIR__);
+    foreach ($cands as $p) {
         if (@is_file($p)) {
-            $base = realpath(__DIR__);
-            return '/' . str_replace('\\', '/', substr(str_replace('\\', '/', realpath($p)), strlen($base) + 1));
+            $rp = realpath($p);
+            return '/' . str_replace('\\', '/', substr(str_replace('\\', '/', $rp), strlen($base) + 1));
         }
     }
     return null;
