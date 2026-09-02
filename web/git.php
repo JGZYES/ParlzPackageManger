@@ -311,6 +311,32 @@ pmm_header('source', '源码浏览');
       .then(function(t){ msg.textContent = t; if (t.indexOf("OK") === 0) setTimeout(function(){ location.reload(); }, 1200); })
       .catch(function(){ msg.textContent = "失败"; });
   });
+
+  /* Releases: clicking a left tag moves the active (on) highlight there */
+  var tags = document.querySelectorAll(".rel-tags li a");
+  if (tags.length) {
+    tags.forEach(function(a){
+      a.addEventListener("click", function(){
+        document.querySelectorAll(".rel-tags li").forEach(function(li){ li.classList.remove("on"); });
+        a.parentElement.classList.add("on");
+      });
+    });
+    /* keep the left highlight in sync with the release in view */
+    var entries = document.querySelectorAll(".rel-entry");
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function(en){
+        en.forEach(function(e){
+          if (e.isIntersecting) {
+            var id = e.target.id.replace("rel-", "");
+            document.querySelectorAll(".rel-tags li").forEach(function(li){
+              li.classList.toggle("on", li.querySelector("a").textContent.trim() === id);
+            });
+          }
+        });
+      }, { rootMargin: "-80px 0px -60% 0px" });
+      entries.forEach(function(en){ io.observe(en); });
+    }
+  }
 })();
 </script>
 <?php pmm_footer(); ?>
