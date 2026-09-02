@@ -57,7 +57,57 @@ function md(string $t): string {
     $t = preg_replace('/`([^`]+)`/', '<code>$1</code>', $t);
     return $t;
 }
+function gh_api(string $url): array {
+    $json = null;
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
+            CURLOPT_FOLLOWLOCATION => true, CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false, CURLOPT_USERAGENT => 'pmm-site']);
+        $r = curl_exec($ch); curl_close($ch);
+        if (is_string($r) && $r !== '') $json = $r;
+    }
+    if ($json === null) $json = (string)@shell_exec('curl -s --max-time 15 ' . escapeshellarg($url));
+    $d = json_decode((string)$json, true);
+    return is_array($d) ? $d : [];
+}
+function render_releases(): void {
+    $rels = gh_api('https://api.github.com/repos/JGZYES/ParlzPackageManger/releases?per_page=30');
+    if (!$rels) { echo '<div class="tips">无法获取 Releases（网络或 API 受限）。</div>'; return; }
+    echo '<div class="rel-list">';
+    foreach ($rels as $r):
+        $tag = $r['tag_name'] ?? '?'; $name = $r['name'] ?? $tag;
+        $date = $r['published_at'] ?? ($r['created_at'] ?? '');
+        $date = substr(str_replace('T', ' ', (string)$date), 0, 10);
+        $prere = !empty($r['prerelease']);
+        $assets = $r['assets'] ?? [];
+?>
+      <div class="rel-card">
+        <div class="rel-head">
+          <div>
+            <span class="rel-version"><?php echo esc($name); ?></span>
+            <?php if ($prere): ?><span class="svc-badge">预发布</span><?php endif; ?>
+            <span class="rel-tag"><?php echo esc($tag); ?></span>
+          </div>
+          <span class="rel-date"><?php echo esc($date); ?></span>
+        </div>
+        <?php if ((string)($r['body'] ?? '') !== ''): ?>
+        <div class="mdbody"><?php echo md((string)$r['body']); ?></div>
+        <?php endif; ?>
+        <?php if ($assets): ?>
+        <div class="rel-assets">
+          <?php foreach ($assets as $a): ?>
+            <a class="rel-asset" href="<?php echo esc($a['browser_download_url'] ?? '#'); ?>" target="_blank" rel="noopener">
+              <?php echo esc($a['name'] ?? 'asset'); ?> <span class="rel-size"><?php echo isset($a['size']) ? fmt_size((int)$a['size']) : ''; ?></span>
+            </a>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+      </div>
+<?php endforeach; echo '</div>';
+}
 
+$view = $_GET['view'] ?? '';
 $branch = $repo_ok ? sh("git -C " . escapeshellarg($REPO_DIR) . " rev-parse --abbrev-ref HEAD 2>/dev/null") : '';
 $last   = $repo_ok ? sh('git -C ' . escapeshellarg($REPO_DIR) . " log -1 --format=\"%H|%s|%an|%ad\" --date=short 2>/dev/null") : '';
 [$lhash, $lsubj, $luser, $ldate] = array_pad(explode('|', $last, 4), 4, '');
@@ -102,7 +152,11 @@ pmm_header('source', '源码浏览');
     <div class="gh-card">
       <div class="gh-top">
         <a class="gh-repo" href="<?php echo $REPO_URL; ?>" target="_blank" rel="noopener">JGZYES / ParlzPackageManager</a>
-        <span class="gh-branch">▸ <?php echo esc($branch ?: 'main'); ?></span>
+        <div class="gh-actions">
+          <a class="btn btn-sm" href="git.php">Code</a>
+          <a class="btn btn-sm" href="git.php?view=releases">Releases</a>
+          <span class="gh-branch">▸ <?php echo esc($branch ?: 'main'); ?></span>
+        </div>
       </div>
       <div class="gh-commit">
         <span class="gh-hash" title="<?php echo esc($lhash); ?>"><?php echo esc($lhash7); ?></span>
@@ -111,6 +165,10 @@ pmm_header('source', '源码浏览');
       </div>
     </div>
 
+    <?php if ($view === 'releases'): ?>
+      <h2 class="section-title" style="text-align:left;font-size:22px;margin:6px 0 20px">Releases</h2>
+      <?php render_releases(); ?>
+    <?php else: ?>
     <div class="gh-path">
       <a href="git.php"><code>source</code></a>
       <?php $acc=''; foreach ($parts as $p) { $acc = $acc==='' ? $p : $acc.'/'.$p;
@@ -156,7 +214,7 @@ pmm_header('source', '源码浏览');
     <?php if ($readme): ?>
     <div class="gh-readme"><div class="gh-readme-t">README</div><div class="mdbody"><?php echo md((string)@file_get_contents($readme)); ?></div></div>
     <?php endif; ?>
-<?php endif; endif; ?>
+<?php endif; endif; endif; ?>
 
   </div>
 </section>
