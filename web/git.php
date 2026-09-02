@@ -91,7 +91,18 @@ function local_asset(string $name, string $tag = ''): ?string {
 function render_releases(): void {
     $rels = gh_api('https://api.github.com/repos/JGZYES/ParlzPackageManger/releases?per_page=30');
     if (!$rels) { echo '<div class="tips">无法获取 Releases（网络或 API 受限）。</div>'; return; }
-    echo '<div class="rel-list">';
+    /* left: tag list (like GitHub's folded releases) */
+    echo '<div class="rel-layout"><aside class="rel-tags"><div class="rel-tags-h">Releases</div><ul>';
+    $i = 0;
+    foreach ($rels as $r) {
+        $t = $r['tag_name'] ?? '?';
+        echo '<li' . ($i === 0 ? ' class="on"' : '') . '><a href="#rel-' . esc($t) . '">' . esc($t) . '</a></li>';
+        $i++;
+    }
+    echo '</ul></aside>';
+    /* right: release entries */
+    echo '<div class="rel-main">';
+    $i = 0;
     foreach ($rels as $r):
         $tag = $r['tag_name'] ?? '?'; $name = $r['name'] ?? $tag;
         $date = $r['published_at'] ?? ($r['created_at'] ?? '');
@@ -99,30 +110,44 @@ function render_releases(): void {
         $prere = !empty($r['prerelease']);
         $assets = $r['assets'] ?? [];
 ?>
-      <div class="rel-card">
-        <div class="rel-head">
-          <div>
-            <span class="rel-version"><?php echo esc($name); ?></span>
-            <?php if ($prere): ?><span class="svc-badge">预发布</span><?php endif; ?>
-            <span class="rel-tag"><?php echo esc($tag); ?></span>
-          </div>
-          <span class="rel-date"><?php echo esc($date); ?></span>
+    <article class="rel" id="rel-<?php echo esc($tag); ?>"<?php echo $i === 0 ? ' data-latest="1"' : ''; ?>>
+      <header class="rel-head">
+        <div class="rel-title">
+          <span class="rel-ico">&#10225;</span>
+          <a class="rel-version" href="#rel-<?php echo esc($tag); ?>"><?php echo esc($name); ?></a>
+          <?php if ($i === 0): ?><span class="rel-latest">Latest</span><?php endif; ?>
+          <?php if ($prere): ?><span class="rel-latest prere">Pre-release</span><?php endif; ?>
         </div>
-        <?php if ((string)($r['body'] ?? '') !== ''): ?>
-        <div class="mdbody"><?php echo md((string)$r['body']); ?></div>
-        <?php endif; ?>
-        <?php if ($assets): ?>
-        <div class="rel-assets">
-          <?php foreach ($assets as $a): ?>
-            <?php $local = local_asset((string)($a['name'] ?? ''), $tag); $href = $local ?: ($a['browser_download_url'] ?? '#'); ?>
-            <a class="rel-asset<?php echo $local ? ' local' : ''; ?>" href="<?php echo esc($href); ?>" target="_blank" rel="noopener"<?php if ($local) echo ' download'; ?>>
-              <?php echo esc($a['name'] ?? 'asset'); ?> <span class="rel-size"><?php echo isset($a['size']) ? fmt_size((int)$a['size']) : ''; ?></span>
+        <span class="rel-date"><?php echo esc($date); ?></span>
+      </header>
+      <?php if ((string)($r['body'] ?? '') !== ''): ?>
+      <div class="rel-body mdbody"><?php echo md((string)$r['body']); ?></div>
+      <?php endif; ?>
+      <?php if ($assets): ?>
+      <div class="rel-assets">
+        <div class="rel-assets-h">Assets</div>
+        <div class="rel-assets-list">
+          <?php foreach ($assets as $a):
+              $local = local_asset((string)($a['name'] ?? ''), $tag);
+              $href = $local ?: ($a['browser_download_url'] ?? '#');
+              $sz = isset($a['size']) ? fmt_size((int)$a['size']) : '';
+          ?>
+          <div class="rel-asset-row">
+            <a class="rel-asset<?php echo $local ? ' local' : ''; ?>"
+               href="<?php echo esc($href); ?>" title="<?php echo esc($href); ?>"
+               <?php echo $local ? ' download' : ' target="_blank" rel="noopener"'; ?>>
+              <span class="rel-a-ico">&#128196;</span> <?php echo esc($a['name'] ?? 'asset'); ?>
             </a>
+            <span class="rel-size"><?php echo esc($sz); ?></span>
+            <a class="rel-dl" href="<?php echo esc($href); ?>" <?php echo $local ? ' download' : ' target="_blank" rel="noopener"'; ?>>下载</a>
+          </div>
           <?php endforeach; ?>
         </div>
-        <?php endif; ?>
       </div>
-<?php endforeach; echo '</div>';
+      <?php endif; ?>
+    </article>
+<?php $i++; endforeach;
+    echo '</div></div>';
 }
 
 $view = $_GET['view'] ?? '';
