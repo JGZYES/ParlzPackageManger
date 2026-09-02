@@ -18,6 +18,11 @@
 #include <stdio.h>
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -261,9 +266,50 @@ static int cmd_verify(int argc, char **argv) {
     return 0;
 }
 
+/* Recursively delete a directory (for the download cache). */
+static void rm_tree(const char *dir) {
+#ifdef _WIN32
+    char pat[1200]; snprintf(pat, sizeof(pat), "%s\\*", dir);
+    WIN32_FIND_DATAA fd; HANDLE h = FindFirstFileA(pat, &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) continue;
+            char full[1400]; snprintf(full, sizeof(full), "%s\\%s", dir, fd.cFileName);
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) rm_tree(full);
+            else DeleteFileA(full);
+        } while (FindNextFileA(h, &fd));
+        FindClose(h);
+    }
+    RemoveDirectoryA(dir);
+#else
+    DIR *d = opendir(dir);
+    if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        char full[1400]; snprintf(full, sizeof(full), "%s/%s", dir, e->d_name);
+        struct stat st;
+        if (stat(full, &st) == 0 && S_ISDIR(st.st_mode)) rm_tree(full);
+        else remove(full);
+    }
+    closedir(d);
+    rmdir(dir);
+#endif
+}
+
+/* pmm cache clean — wipe the download cache. */
+static int cmd_cache_clean(void) {
+    char dir[1024];
+    pmm_cache_dir(dir, sizeof(dir));
+    printf("pmm: cleaning cache %s\n", dir);
+    rm_tree(dir);
+    return 0;
+}
+
 /* <flag> <repo-ish> [--host <name>] */
 static int cmd_install_git(int argc, char **argv, const char *flag) {
     const char *repo = NULL;
+    const char *branch = NULL;
     PmmHost host = HOST_AUTO;
     PmmConfig cfg; MirrorSel mirror;
     load_config(&cfg);
@@ -281,6 +327,8 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
                 fprintf(stderr, "pmm: unknown host '%s'\n", argv[i]);
                 return 1;
             }
+        } else if ((strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "--branch") == 0) && i + 1 < argc) {
+            branch = argv[++i];
         } else if (!repo) {
             repo = argv[i];
         }
@@ -299,6 +347,7 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
 
     RepoContext *ctx = repo_open(host, repo, mirror.api_base);
     if (!ctx) return 1;
+    if (branch && *branch) { free(ctx->ref); ctx->ref = strdup(branch); }
     printf("pmm: host=%s repo=%s%s%s\n", host_name(host), repo,
            mirror.name ? " mirror=" : "", mirror.name ? mirror.name : "");
 
@@ -539,6 +588,7 @@ int main(int argc, char **argv) {
     const char *items[64]; int ni = 0;
     for (int i = 2; i < argc; i++) {
         const char *a = argv[i];
+        if (strcmp(a, "--no-cache") == 0) { pmm_no_cache = 1; continue; }
         if (strcmp(a, "-dpkg") == 0) { forced = 1; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
         if (strcmp(a, "-msi") == 0)  { forced = 2; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
         if (strncmp(a, "-v", 2) == 0 && a[2]) { version = a + 2; continue; }
@@ -613,6 +663,10 @@ int main(int argc, char **argv) {
 
     if (strcmp(argv[1], "search") == 0)
         return cmd_search(argc - 2, argv + 2);
+    if (strcmp(argv[1], "cache") == 0) {
+        if (argc >= 3 && strcmp(argv[2], "clean") == 0) return cmd_cache_clean();
+        fprintf(stderr, "pmm: usage: pmm cache clean\n"); return 1;
+    }
     if (strcmp(argv[1], "info") == 0)
         return cmd_info(argc - 2, argv + 2);
     if (strcmp(argv[1], "verify") == 0)

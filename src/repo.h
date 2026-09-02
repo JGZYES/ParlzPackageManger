@@ -16,6 +16,7 @@ typedef struct {
     char *page_url;  /* resolved raw/home endpoint */
     char *origin;    /* scheme://host for full URLs (HOST_AUTO probing) */
     char *repo_norm; /* normalized "owner/repo" */
+    char *ref;       /* optional specific release tag/branch (repo@ref); "" = latest */
 } RepoContext;
 
 /* Detect host from a repo slug like "owner/repo" or a full URL. */

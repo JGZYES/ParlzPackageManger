@@ -10,6 +10,9 @@ int install_file(const char *url, const char *name);
  * `pmm install -dpkg foo.deb` (Linux) or `pmm install -msi foo.msi` (Windows). */
 int install_local_file(const char *path);
 
+/* Set by `pmm install --no-cache` to force a fresh download (drop cache file). */
+extern int pmm_no_cache;
+
 /* Install from a remote registry (apt-style multi-mirror fallback):
  * looks up package `name` in the configured registry mirrors by priority.
  * If `version` is non-NULL, fetches {registry}/{name}/{version}.json, otherwise

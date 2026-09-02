@@ -93,12 +93,24 @@ RepoContext *repo_open(PmmHost host, const char *repo, const char *mirror_api_ba
     RepoContext *ctx = calloc(1, sizeof(RepoContext));
     if (!ctx) return NULL;
     ctx->host = host;
-    char *norm = normalize_repo(repo);
+    /* support "repo@ref" (e.g. owner/repo@v1.2.3) → specific release tag */
+    const char *lastslash = strrchr(repo, '/');
+    const char *at = strrchr(repo, '@');
+    char repo_buf[1024];
+    const char *repo_src = repo;
+    if (at && lastslash && at > lastslash) {
+        snprintf(repo_buf, sizeof(repo_buf), "%.*s", (int)(at - repo), repo);
+        repo_src = repo_buf;
+        ctx->ref = strdup(at + 1);
+    } else {
+        ctx->ref = strdup("");
+    }
+    char *norm = normalize_repo(repo_src);
     char api[1024];
     ctx->repo_norm = strdup(norm);
 
     char origin[512];
-    extract_origin(repo, origin, sizeof(origin));
+    extract_origin(repo_src, origin, sizeof(origin));
     ctx->origin = strdup(origin);
 
     const char *base = NULL;
@@ -155,6 +167,7 @@ void repo_close(RepoContext *ctx) {
     free(ctx->page_url);
     free(ctx->origin);
     free(ctx->repo_norm);
+    free(ctx->ref);
     free(ctx);
 }
 
@@ -333,10 +346,12 @@ ReleaseAsset *repo_latest_asset(RepoContext *ctx, PmmOS os) {
 
     switch (ctx->host) {
     case HOST_GITLAB:
-        snprintf(url, sizeof(url), "%s/releases/permalink/latest", ctx->api_url);
+        if (ctx->ref && *ctx->ref) { char *e = url_encode(ctx->ref); snprintf(url, sizeof(url), "%s/releases/%s", ctx->api_url, e); free(e); }
+        else snprintf(url, sizeof(url), "%s/releases/permalink/latest", ctx->api_url);
         break;
     default:
-        snprintf(url, sizeof(url), "%s/releases/latest", ctx->api_url);
+        if (ctx->ref && *ctx->ref) { char *e = url_encode(ctx->ref); snprintf(url, sizeof(url), "%s/releases/tags/%s", ctx->api_url, e); free(e); }
+        else snprintf(url, sizeof(url), "%s/releases/latest", ctx->api_url);
         break;
     }
     return fetch_latest(url, ctx->host, os, NULL);
@@ -349,10 +364,13 @@ ReleaseAsset *repo_latest_asset(RepoContext *ctx, PmmOS os) {
 ReleaseAsset *repo_asset_matching(RepoContext *ctx, PmmOS os, const char *name_sub) {
     if (!ctx || !ctx->api_url || !name_sub) return NULL;
     char url[2048];
-    if (ctx->host == HOST_GITLAB)
-        snprintf(url, sizeof(url), "%s/releases/permalink/latest", ctx->api_url);
-    else
-        snprintf(url, sizeof(url), "%s/releases/latest", ctx->api_url);
+    if (ctx->host == HOST_GITLAB) {
+        if (ctx->ref && *ctx->ref) { char *e = url_encode(ctx->ref); snprintf(url, sizeof(url), "%s/releases/%s", ctx->api_url, e); free(e); }
+        else snprintf(url, sizeof(url), "%s/releases/permalink/latest", ctx->api_url);
+    } else {
+        if (ctx->ref && *ctx->ref) { char *e = url_encode(ctx->ref); snprintf(url, sizeof(url), "%s/releases/tags/%s", ctx->api_url, e); free(e); }
+        else snprintf(url, sizeof(url), "%s/releases/latest", ctx->api_url);
+    }
     return fetch_latest(url, ctx->host, os, name_sub);
 }
 
