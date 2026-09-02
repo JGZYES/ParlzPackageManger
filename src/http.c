@@ -203,23 +203,35 @@ static unsigned long long remote_size(const char *url) {
     return sz;
 }
 
+static int download_parallel(const char *url, const char *out, unsigned long long total, int threads);
+
 int http_download(const char *url, const char *out_path) {
     int tty = IS_TTY(STDERR_FD);
     if (getenv("PMM_FORCE_PROGRESS")) tty = 1; /* debug/testing override */
 
     if (!tty) {
-        /* background/redirect: silent, simple */
+        /* background/redirect: silent, simple (with curl resume -C -) */
         size_t cmdlen = strlen(url) * 3 + strlen(out_path) * 3 + 160;
         char *cmd = malloc(cmdlen);
-        if (!cmd) return -1;
-        snprintf(cmd, cmdlen, "curl -L --fail --retry 3 --max-time 3600 -S --silent -o \"%s\" \"%s\"", out_path, url);
-        int rc = system(cmd);
-        free(cmd);
-        return (rc == 0) ? 0 : -1;
+        if (cmd) {
+            snprintf(cmd, cmdlen, "curl -L --fail --retry 3 --max-time 3600 -C - -S --silent -o \"%s\" \"%s\"", out_path, url);
+            int rc = system(cmd);
+            free(cmd);
+            return (rc == 0) ? 0 : -1;
+        }
+        return -1;
     }
 
-    /* terminal: stream via popen and paint a python-style bar */
+    /* terminal: prefer a parallel ranged download (POSIX only) for large files */
     unsigned long long total = remote_size(url);
+#ifdef _WIN32
+    /* no reliable parallel via system() on Windows — use the single stream */
+#else
+    if (total > 0 && total >= 8u * 1024u * 1024u && download_parallel(url, out_path, total, 4) == 0)
+        return 0;
+#endif
+
+    /* single-stream fallback: stream via popen and paint a python-style bar */
     char cmd[2100];
     snprintf(cmd, sizeof(cmd), "curl -sL --fail --retry 3 --max-time 3600 -o - \"%s\"", url);
     FILE *pf = PMM_POPEN_READ_X(cmd);   /* binary read */
@@ -250,4 +262,66 @@ int http_download(const char *url, const char *out_path) {
     if (rc != 0) { remove(out_path); return -1; }
     render_progress(fetched, total, el, speed, 1);
     return 0;
+}
+
+/* Parallel ranged download with per-part resume (POSIX only; Windows falls back).
+ * Splits [0,total) into `threads` chunks, fetches each with curl --range into
+ * out.part.N (resuming an existing partial part), waits, then concatenates and
+ * verifies the assembled size == total. Returns 0 on success, -1 on any failure
+ * (the caller then falls back to the single-stream path). */
+static int download_parallel(const char *url, const char *out, unsigned long long total, int threads) {
+#ifdef _WIN32
+    (void)url; (void)out; (void)total; (void)threads; return -1;
+#else
+    if (total == 0 || threads < 2) return -1;
+    unsigned long long chunk = (total + (unsigned long long)threads - 1) / (unsigned long long)threads;
+    char cmdbuf[8192] = "";
+    char parts[64][1200];
+    int np = 0;
+
+    for (int i = 0; i < threads; i++) {
+        unsigned long long st = (unsigned long long)i * chunk;
+        unsigned long long en = st + chunk - 1;
+        if (st > en || st >= total) break;
+        if (en >= total) en = total - 1;
+        char part[1200];
+        snprintf(part, sizeof(part), "%s.part.%d", out, i);
+        snprintf(parts[np], sizeof(parts[0]), "%s", part);
+        /* resume from the end of an existing partial part */
+        long sz = 0;
+        FILE *pf = fopen(part, "rb");
+        if (pf) { fseek(pf, 0, SEEK_END); sz = ftell(pf); fclose(pf); }
+        unsigned long long fs = st;
+        if (sz > 0) { fs = st + (unsigned long long)sz; if (fs > en) fs = st; }
+        if (fs > en) { np++; continue; }      /* part already complete */
+        char piece[1024];
+        snprintf(piece, sizeof(piece),
+                 "curl -sL --fail --retry 2 --max-time 1200 -r %llu-%llu -o \"%s\" \"%s\" &",
+                 fs, en, part, url);
+        if (strlen(cmdbuf) + strlen(piece) + 4 >= sizeof(cmdbuf)) return -1;
+        strcat(cmdbuf, piece);
+        np++;
+    }
+    if (np == 0) return -1;
+    /* wrap in a subshell and wait for all background curls */
+    char launch[9000];
+    snprintf(launch, sizeof(launch), "( %s wait )", cmdbuf);
+    if (system(launch) != 0) return -1;
+
+    /* concatenate parts in order and verify size */
+    FILE *of = fopen(out, "wb");
+    if (!of) return -1;
+    unsigned long long got = 0;
+    for (int i = 0; i < np; i++) {
+        FILE *pf = fopen(parts[i], "rb");
+        if (!pf) { fclose(of); return -1; }
+        char b[65536]; size_t r;
+        while ((r = fread(b, 1, sizeof(b), pf)) > 0) { fwrite(b, 1, r, of); got += r; }
+        fclose(pf);
+        remove(parts[i]);
+    }
+    fclose(of);
+    if (got != total) { remove(out); return -1; }
+    return 0;
+#endif
 }

@@ -13,6 +13,9 @@ int install_local_file(const char *path);
 /* Set by `pmm install --no-cache` to force a fresh download (drop cache file). */
 extern int pmm_no_cache;
 
+/* Resolve a comma-separated Depends list ("a (>= 1.0), b") from the registry. */
+int pmm_install_dep_list(const char *list);
+
 /* Install from a remote registry (apt-style multi-mirror fallback):
  * looks up package `name` in the configured registry mirrors by priority.
  * If `version` is non-NULL, fetches {registry}/{name}/{version}.json, otherwise

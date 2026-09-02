@@ -1,6 +1,7 @@
 /* pdm.c - .pdm pack/install/remove (deb-like, built on system tar) */
 #include "pdm.h"
 #include "pmm.h"
+#include "install.h"
 #include "sha256.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -440,6 +441,9 @@ int pdm_install_file(const char *pdmfile) {
     size_t got = fread(ctl, 1, sizeof(ctl) - 1, cf);
     PMM_PCLOSE_READ(cf);
     ctl[got] = '\0';
+    /* resolve declared dependencies from the registry before installing */
+    char *deps = control_get(ctl, "Depends");
+    if (deps && *deps) { pmm_install_dep_list(deps); free(deps); }
     char *pkg = control_get(ctl, "Package");
     char *ver = control_get(ctl, "Version");
     if (!pkg || !*pkg) {

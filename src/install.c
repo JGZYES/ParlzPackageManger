@@ -372,6 +372,51 @@ static const char *cur_arch_name(void) {
     return pmm_detect_arch();
 }
 
+/* ---------- dependency resolution (Depends: "name (op ver), ...") ---------- */
+static const char *dep_seen[128];
+static int dep_seen_n = 0;
+
+static int install_dep_spec(const char *depstr);   /* fwd (mutually recursive) */
+
+static int parse_dep(const char *d, char *name, size_t ns, char *spec, size_t ss) {
+    const char *paren = strchr(d, '(');
+    if (paren) {
+        size_t nl = (size_t)(paren - d);
+        while (nl && (d[nl-1]==' '||d[nl-1]=='\t')) nl--;
+        if (nl >= ns) nl = ns-1;
+        memcpy(name, d, nl); name[nl] = 0;
+        const char *c = paren + 1, *ce = strchr(c, ')');
+        if (!ce) ce = c + strlen(c);
+        size_t sl = (size_t)(ce - c); if (sl >= ss) sl = ss-1;
+        memcpy(spec, c, sl); spec[sl] = 0;
+    } else {
+        size_t nl = strlen(d);
+        while (nl && (d[nl-1]==' '||d[nl-1]=='\t')) nl--;
+        if (nl >= ns) nl = ns-1;
+        memcpy(name, d, nl); name[nl] = 0; spec[0] = 0;
+    }
+    char *p = name; while (*p==' '||*p=='\t') p++;
+    if (p != name) memmove(name, p, strlen(p)+1);
+    int se = (int)strlen(spec); while (se && (spec[se-1]==' '||spec[se-1]=='\t')) spec[--se]=0;
+    return name[0] ? 0 : -1;
+}
+
+/* Install a comma-separated Depends list. Exposed so local .pdm installs resolve deps. */
+int pmm_install_dep_list(const char *list) {
+    if (!list || !*list) return 0;
+    char *dup = strdup(list), *p = dup;
+    while (p && *p) {
+        char *end = strchr(p, ',');
+        if (end) *end = 0;
+        char *t = p; while (*t==' '||*t=='\t') t++;
+        if (*t) install_dep_spec(t);
+        if (!end) break;
+        p = end + 1;
+    }
+    free(dup);
+    return 0;
+}
+
 int install_from_registry(const char *name, const char *spec, const char *mirror_active) {
     if (!name || !*name) return -1;
     MirrorList *ml = mirrors_load();
@@ -436,6 +481,15 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         return -1;
     }
 
+    /* resolve declared dependencies before installing this package */
+    JsonValue *deps = json_get(meta, "depends");
+    if (deps && deps->type == JSON_ARRAY) {
+        for (int i = 0; i < deps->count; i++) {
+            JsonValue *dv = json_at(deps, i);
+            if (dv && dv->type == JSON_STRING) install_dep_spec(dv->string);
+        }
+    }
+
     const char *osn = cur_os_name();
     const char *arch = cur_arch_name();
     JsonValue *variants = json_get(meta, "variants");
@@ -498,4 +552,14 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
     }
     free(url_cp); free(file_cp); free(want_sha);
     return rc;
+}
+
+static int install_dep_spec(const char *depstr) {
+    char name[256], spec[256];
+    if (parse_dep(depstr, name, sizeof(name), spec, sizeof(spec)) != 0) return -1;
+    for (int i = 0; i < dep_seen_n; i++)
+        if (strcmp(dep_seen[i], name) == 0) return 0;   /* cycle / duplicate */
+    if (dep_seen_n < 128) dep_seen[dep_seen_n++] = strdup(name);
+    printf("pmm: resolving dependency %s%s%s\n", name, spec[0] ? " " : "", spec);
+    return install_from_registry(name, spec[0] ? spec : NULL, NULL);
 }
