@@ -27,6 +27,7 @@
 !web/downloads/
 !web/downloads/**/*.zip
 !web/downloads/**/*.deb
+!web/downloads/**/*.exe
 
 # source browser cache clone
 web/.src/
