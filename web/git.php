@@ -125,9 +125,16 @@ function render_releases(): void {
         <div class="rel-body mdbody"><?php echo md($body); ?></div>
         <?php endif; ?>
         <?php if ($assets): ?>
+        <?php
+            $tot = 0; foreach ($assets as $a) $tot += (int)($a['size'] ?? 0);
+            $cnt = count($assets);
+        ?>
         <div class="rel-assets">
-          <div class="rel-assets-h">Assets · 下载</div>
-          <div class="rel-assets-list">
+          <button class="rel-assets-h" type="button" data-toggle="assets" aria-expanded="false">
+            <span class="rel-chev">&#9656;</span> Assets · 下载
+            <span class="rel-count"><?php echo $cnt; ?> files · <?php echo fmt_size($tot); ?></span>
+          </button>
+          <div class="rel-assets-list" hidden>
             <?php foreach ($assets as $a):
                 $local = local_asset((string)($a['name'] ?? ''), $tag);
                 $href = $local ?: ($a['browser_download_url'] ?? '#');
@@ -236,8 +243,14 @@ pmm_header('source', '源码浏览');
         .rel-body{border-top:1px solid var(--line);padding-top:14px;margin-top:4px}
         .rel-tagline{font-size:12px;color:var(--dim);margin-top:12px}
         .rel-assets{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
-        .rel-assets-h{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:var(--dim);margin-bottom:12px;font-weight:700}
+        .rel-assets-h{display:flex;align-items:center;gap:9px;background:transparent;border:0;color:var(--text);cursor:pointer;font-size:12.5px;letter-spacing:.4px;text-transform:uppercase;font-weight:700;padding:4px 0;width:100%;text-align:left}
+        .rel-assets-h:hover{color:#fff}
+        .rel-chev{transition:transform .18s;font-size:11px;color:var(--dim)}
+        .rel-assets.open .rel-chev{transform:rotate(90deg)}
+        .rel-count{margin-left:auto;font-size:11.5px;color:var(--dim);text-transform:none;letter-spacing:0;font-weight:500}
         .rel-assets-list{display:grid;gap:8px}
+        .rel-assets-list[hidden]{display:none}
+        .rel-assets.open .rel-assets-list{margin-top:12px}
         .rel-asset-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0c1017}
         .rel-asset{display:inline-flex;align-items:center;gap:7px;color:var(--text);font-family:ui-monospace,monospace;font-size:12.5px;text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .rel-asset:hover{color:#fff;text-decoration:underline}
@@ -310,6 +323,17 @@ pmm_header('source', '源码浏览');
       .then(function(r){ return r.text(); })
       .then(function(t){ msg.textContent = t; if (t.indexOf("OK") === 0) setTimeout(function(){ location.reload(); }, 1200); })
       .catch(function(){ msg.textContent = "失败"; });
+  });
+
+  /* Releases: Assets collapsible (GitHub-like) — click header to expand/collapse */
+  document.querySelectorAll(".rel-assets-h").forEach(function(h){
+    h.addEventListener("click", function(){
+      var box = h.closest(".rel-assets");
+      var list = box.querySelector(".rel-assets-list");
+      var open = box.classList.toggle("open");
+      list.hidden = !open;
+      h.setAttribute("aria-expanded", open ? "true" : "false");
+    });
   });
 
   /* Releases: clicking a left tag moves the active (on) highlight there */
