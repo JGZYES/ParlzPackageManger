@@ -109,23 +109,26 @@ function render_releases(): void {
         $date = substr(str_replace('T', ' ', (string)$date), 0, 10);
         $prere = !empty($r['prerelease']);
         $assets = $r['assets'] ?? [];
+        $body = (string)($r['body'] ?? '');
 ?>
-    <article class="rel" id="rel-<?php echo esc($tag); ?>"<?php echo $i === 0 ? ' data-latest="1"' : ''; ?>>
-      <header class="rel-head">
-        <div class="rel-title">
-          <span class="rel-ico">&#10225;</span>
-          <a class="rel-version" href="#rel-<?php echo esc($tag); ?>"><?php echo esc($name); ?></a>
-          <?php if ($i === 0): ?><span class="rel-latest">Latest</span><?php endif; ?>
-          <?php if ($prere): ?><span class="rel-latest prere">Pre-release</span><?php endif; ?>
+    <div class="rel-entry" id="rel-<?php echo esc($tag); ?>"<?php echo $i === 0 ? ' data-latest="1"' : ''; ?>>
+      <div class="rel-card">
+        <div class="rel-head">
+          <h2 class="rel-version"><span class="rel-ico">&#10225;</span> <?php echo esc($name); ?></h2>
+          <div class="rel-badges">
+            <?php if ($i === 0): ?><span class="rel-latest">Latest</span><?php endif; ?>
+            <?php if ($prere): ?><span class="rel-latest prere">Pre-release</span><?php endif; ?>
+            <span class="rel-date"><?php echo esc($date); ?></span>
+          </div>
         </div>
-        <span class="rel-date"><?php echo esc($date); ?></span>
-      </header>
-      <?php if ((string)($r['body'] ?? '') !== ''): ?>
-      <div class="rel-body mdbody"><?php echo md((string)$r['body']); ?></div>
-      <?php endif; ?>
+        <?php if ($body !== ''): ?>
+        <div class="rel-body mdbody"><?php echo md($body); ?></div>
+        <?php endif; ?>
+        <p class="rel-tagline">标签 <code><?php echo esc($tag); ?></code></p>
+      </div>
       <?php if ($assets): ?>
-      <div class="rel-assets">
-        <div class="rel-assets-h">Assets</div>
+      <div class="rel-assets-card">
+        <div class="rel-assets-h">Assets · 下载</div>
         <div class="rel-assets-list">
           <?php foreach ($assets as $a):
               $local = local_asset((string)($a['name'] ?? ''), $tag);
@@ -145,7 +148,7 @@ function render_releases(): void {
         </div>
       </div>
       <?php endif; ?>
-    </article>
+    </div>
 <?php $i++; endforeach;
     echo '</div></div>';
 }

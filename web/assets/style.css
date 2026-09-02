@@ -262,3 +262,38 @@ code{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Co
 .rel-size{font-size:11.5px;color:var(--dim);font-family:ui-monospace,monospace}
 .rel-dl{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:3px 10px;text-decoration:none;white-space:nowrap}
 .rel-dl:hover{color:#fff;border-color:#fff}
+
+/* ---------- git.php releases — GitHub-style (intro card + assets card) ---------- */
+.rel-layout{display:grid;grid-template-columns:220px 1fr;gap:26px;align-items:start}
+@media(max-width:840px){.rel-layout{grid-template-columns:1fr}}
+.rel-tags{position:sticky;top:70px;border-right:1px solid var(--line);padding-right:12px}
+.rel-tags-h{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);padding:8px 4px;font-weight:700}
+.rel-tags ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.rel-tags li a{display:block;padding:6px 10px;border-radius:6px;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--muted);text-decoration:none}
+.rel-tags li a:hover{background:var(--panel2);color:#fff}
+.rel-tags li.on a{background:var(--panel);color:#fff;font-weight:600}
+.rel-main{display:grid;gap:24px;min-width:0}
+.rel-entry{display:grid;gap:14px}
+.rel-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+.rel-assets-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 22px}
+.rel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.rel-version{font-weight:800;font-size:19px;color:#fff;margin:0;display:flex;align-items:center;gap:9px;letter-spacing:-.3px}
+.rel-ico{color:var(--dim);font-size:16px}
+.rel-badges{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rel-latest{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#111;background:#fff;border-radius:999px;padding:2px 9px}
+.rel-latest.prere{color:#fff;background:transparent;border:1px solid var(--line);font-weight:600}
+.rel-date{font-size:12.5px;color:var(--dim);font-family:ui-monospace,monospace}
+.rel-body{border-top:1px solid var(--line);padding-top:14px;margin-top:4px}
+.rel-body:empty{border-top:0;padding-top:0;margin-top:0}
+.rel-tagline{font-size:12px;color:var(--dim);margin-top:12px}
+.rel-tagline code{color:var(--muted)}
+.rel-assets-card .rel-assets-h{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:var(--dim);margin-bottom:12px;font-weight:700}
+.rel-assets-list{display:grid;gap:8px}
+.rel-asset-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0c1017}
+.rel-asset{display:inline-flex;align-items:center;gap:7px;color:var(--text);font-family:ui-monospace,monospace;font-size:12.5px;text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rel-asset:hover{color:#fff;text-decoration:underline}
+.rel-asset .rel-a-ico{color:var(--dim)}
+.rel-asset.local{color:#fff}
+.rel-size{font-size:11.5px;color:var(--dim);font-family:ui-monospace,monospace;white-space:nowrap}
+.rel-dl{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:3px 10px;text-decoration:none;white-space:nowrap}
+.rel-dl:hover{color:#fff;border-color:#fff}
