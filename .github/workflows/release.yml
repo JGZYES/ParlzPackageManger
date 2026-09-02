@@ -62,9 +62,11 @@ jobs:
             rm -rf pkg && mkdir -p pkg/DEBIAN pkg/usr/local/bin
             cp out/pmm pkg/usr/local/bin/pmm
             SIZE=$(du -k pkg/usr/local/bin/pmm | cut -f1)
+            DEBVER="$VER"
+            case "$DEBVER" in [0-9]*) ;; *) DEBVER="0.0.0-dev" ;; esac   # dpkg needs a digit-leading version
             {
               echo "Package: pmm"
-              echo "Version: $VER"
+              echo "Version: $DEBVER"
               echo "Section: devel"
               echo "Priority: optional"
               echo "Architecture: amd64"
