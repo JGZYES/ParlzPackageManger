@@ -578,10 +578,13 @@ int main(int argc, char **argv) {
             if (pdm_install_file(pkg) == 0) ok++; else fprintf(stderr, "pmm: failed to install %s\n", pkg);
             continue;
         }
-        /* direct URL install: pmm install https://.../foo.zip */
+        /* direct URL install: pmm install https://.../foo.zip
+         * (with -dpkg/-msi the type is forced regardless of URL extension) */
         if (strncmp(pkg, "http://", 7) == 0 || strncmp(pkg, "https://", 8) == 0) {
             const char *bn = strrchr(pkg, '/');
             bn = bn ? bn + 1 : pkg;
+            if (forced == 1) bn = "download.deb";
+            else if (forced == 2) bn = "download.msi";
             if (install_file(pkg, bn) == 0) ok++;
             else fprintf(stderr, "pmm: failed to install %s\n", pkg);
             continue;
