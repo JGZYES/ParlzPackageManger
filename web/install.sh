@@ -7,7 +7,7 @@
 #
 # 下载官方 release 二进制并安装到 /usr/local/bin/pmm（root）或 ~/.local/bin/pmm。
 set -e
-VER="0.2.8-rc1"
+VER="0.2.9"
 REPO="JGZYES/ParlzPackageManger"
 
 # ---- 检测平台 ----
