@@ -27,6 +27,10 @@ curl -sSL https://pmm.parlz.com/install.sh | bash
 # 方式二：.deb 安装
 curl -L -o pmm.deb https://pmm.parlz.com/downloads/pmm_<?php echo PMM_VERSION; ?>_amd64.deb
 sudo apt install ./pmm.deb
+
+# 方式三：.rpm 安装
+curl -L -o pmm.rpm https://pmm.parlz.com/downloads/pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm
+sudo rpm -Uvh pmm.rpm
 pmm -v</code></pre>
       <button class="copy-btn" data-copy="linux">复制</button>
     </div>
