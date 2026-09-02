@@ -1,0 +1,1 @@
+PHP is a server-side scripting language that runs on Windows via FastCGI, but the recommended Windows alternative is to use WSL2 with a Linux PHP environment for better performance and ecosystem compatibility.

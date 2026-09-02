@@ -95,6 +95,11 @@ pmm_header('home', '跨平台 C 语言包管理器');
         <span class="entry-title">服务状态</span>
         <span class="entry-desc">深圳 / 香港镜像的实时探测与详细信息</span>
       </a>
+      <a class="entry-card" href="source.php">
+        <span class="entry-icon">&lt;/&gt;</span>
+        <span class="entry-title">源码</span>
+        <span class="entry-desc">GitHub 风格浏览 PMM 源码（克隆本仓库）</span>
+      </a>
     </div>
   </div>
 </section>

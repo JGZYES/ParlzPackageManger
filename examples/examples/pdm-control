@@ -1,0 +1,5 @@
+Package: hello
+Version: 1.0.0
+Architecture: all
+Description: A demo .pdm package
+Maintainer: PMM example <example@pmm.dev>
