@@ -213,6 +213,8 @@ pmm_header('source', '源码浏览');
 
     <?php if ($view === 'releases'): ?>
       <style>
+        html{scroll-padding-top:88px}
+        .rel-entry{scroll-margin-top:88px}
         .rel-layout{display:grid;grid-template-columns:220px 1fr;gap:26px;align-items:start}
         @media(max-width:840px){.rel-layout{grid-template-columns:1fr}}
         .rel-tags{position:sticky;top:70px;border-right:1px solid var(--line);padding-right:12px}
