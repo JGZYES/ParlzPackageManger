@@ -21,6 +21,7 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "pmm.h"
 #include "json.h"
@@ -30,6 +31,8 @@
 #include "install.h"
 #include "pdm.h"
 #include "mirrors.h"
+#include "sha256.h"
+#include "sha1.h"
 
 typedef struct {
     char *registry_url;   /* package registry base URL */
@@ -148,6 +151,113 @@ static int has_installer_ext(const char *s) {
         size_t el = strlen(exts[i]);
         if (l >= el && strcmp(s + l - el, exts[i]) == 0) return 1;
     }
+    return 0;
+}
+
+/* Case-insensitive substring (avoids non-standard strcasestr). */
+static int ci_contains(const char *hay, const char *needle) {
+    size_t nl = strlen(needle);
+    if (!nl) return 1;
+    for (; *hay; hay++) {
+        size_t i;
+        for (i = 0; i < nl && hay[i]; i++)
+            if (tolower((unsigned char)hay[i]) != tolower((unsigned char)needle[i])) break;
+        if (i == nl) return 1;
+    }
+    return 0;
+}
+
+/* Fetch `{registry}/{rel}` from the configured mirrors (by priority).
+ * Returns malloc'd body or NULL; *outstatus receives the HTTP code. */
+static char *registry_fetch(const char *rel, int *outstatus) {
+    MirrorList *ml = mirrors_load();
+    char *bases[128]; int nb = 0;
+    for (int i = 0; i < ml->count && nb < 128; i++)
+        if (ml->items[i].registry && *ml->items[i].registry)
+            bases[nb++] = ml->items[i].registry;
+    char url[2048]; int status = 0; char *body = NULL;
+    for (int i = 0; i < nb; i++) {
+        snprintf(url, sizeof(url), "%s/%s", bases[i], rel);
+        body = http_get(url, &status);
+        if (body && status != 404 && status != 403 && status != 503) break;
+        free(body); body = NULL;
+    }
+    mirrors_free(ml);
+    if (outstatus) *outstatus = status;
+    return body;
+}
+
+/* pmm search <keyword> — list registry packages matching keyword. */
+static int cmd_search(int argc, char **argv) {
+    if (argc < 1) { fprintf(stderr, "pmm: usage: pmm search <keyword>\n"); return 1; }
+    int status = 0;
+    char *body = registry_fetch("packages.json", &status);
+    if (!body) { fprintf(stderr, "pmm: no registry index (packages.json) available\n"); return 1; }
+    JsonValue *root = json_parse(body);
+    free(body);
+    if (!root || root->type != JSON_ARRAY) { fprintf(stderr, "pmm: bad registry index\n"); json_free(root); return 1; }
+    const char *kw = argv[0];
+    int found = 0;
+    for (int i = 0; i < root->count; i++) {
+        JsonValue *v = json_at(root, i);
+        const char *name = (v && v->type == JSON_STRING) ? v->string : NULL;
+        if (!name) continue;
+        if (ci_contains(name, kw)) { printf("  %s\n", name); found++; }
+    }
+    json_free(root);
+    if (!found) printf("pmm: no package matches '%s'\n", kw);
+    return 0;
+}
+
+/* pmm info <package|file.pdm> — registry package info, or a local .pdm's control. */
+static int cmd_info(int argc, char **argv) {
+    if (argc < 1) { fprintf(stderr, "pmm: usage: pmm info <package|file.pdm>\n"); return 1; }
+    const char *pkg = argv[0];
+    /* local .pdm -> control info */
+    FILE *chk = fopen(pkg, "rb");
+    if (chk) {
+        fclose(chk);
+        size_t lp = strlen(pkg);
+        if (lp > 4 && (strcmp(pkg + lp - 4, ".pdm") == 0 || strcmp(pkg + lp - 4, ".PDM") == 0))
+            return pdm_info(pkg);
+    }
+    /* registry package */
+    char rel[512]; snprintf(rel, sizeof(rel), "%s.json", pkg);
+    int status = 0;
+    char *body = registry_fetch(rel, &status);
+    if (!body) { fprintf(stderr, "pmm: package '%s' not found in registry\n", pkg); return 1; }
+    JsonValue *root = json_parse(body);
+    free(body);
+    if (!root || root->type != JSON_OBJECT) { fprintf(stderr, "pmm: bad registry entry '%s'\n", pkg); json_free(root); return 1; }
+    const char *name = json_str(root, "name");
+    const char *ver  = json_str(root, "version");
+    printf("pmm: %s%s%s\n", name ? name : pkg, ver ? " " : "", ver ? ver : "");
+    JsonValue *vr = json_get(root, "variants");
+    if (vr && vr->count > 0) {
+        for (int i = 0; i < vr->count; i++) {
+            JsonValue *v = json_at(vr, i);
+            if (!v) continue;
+            const char *vv = json_str(v, "version");
+            const char *osn = json_str(v, "os");
+            const char *archn = json_str(v, "arch");
+            printf("  %s   %s/%s\n", vv ? vv : "?", osn ? osn : "-", archn ? archn : "-");
+        }
+    } else {
+        const char *u = json_str(root, "url");
+        printf("  url: %s\n", u ? u : "-");
+    }
+    json_free(root);
+    return 0;
+}
+
+/* pmm verify <file> — print sha256 (and sha1) of a downloaded package file. */
+static int cmd_verify(int argc, char **argv) {
+    if (argc < 1) { fprintf(stderr, "pmm: usage: pmm verify <file>\n"); return 1; }
+    const char *file = argv[0];
+    char hex[128];
+    if (pmm_sha256_file(file, hex) == 0) printf("pmm: sha256  %s  %s\n", hex, file);
+    else { fprintf(stderr, "pmm: cannot read %s\n", file); return 1; }
+    if (pmm_sha1_file(file, hex) == 0) printf("pmm: sha1    %s  %s\n", hex, file);
     return 0;
 }
 
@@ -313,8 +423,14 @@ static void print_help(void) {
     printf("  pmm install <pkg>                     install from registry mirrors (apt-style)\n");
     printf("  pmm install <file.pdm>                install a local .pdm package\n");
     printf("  pmm install <pkg> [pkg2 ...]          install several packages\n");
+    printf("  pmm install <file.deb|file.msi|...>   install a local package file\n");
+    printf("  pmm install -dpkg <x.deb>             install a .deb (Linux)\n");
+    printf("  pmm install -msi <x.msi>              install an .msi (Windows)\n");
+    printf("  pmm install <https://...>             install a file from a URL\n");
+    printf("  pmm search <keyword>                  list registry packages matching keyword\n");
+    printf("  pmm info <package|file.pdm>           registry/local package info\n");
+    printf("  pmm verify <file>                     print sha256/sha1 of a package file\n");
     printf("  pmm pack <dir> [out.pdm]              pack a folder into a .pdm\n");
-    printf("  pmm info <file.pdm>                   show package control info\n");
     printf("  pmm list                              list installed packages\n");
     printf("  pmm remove <pkg>                      uninstall a package\n");
     printf("  pmm self-update                       update pmm (auto os/arch)\n");
@@ -462,6 +578,14 @@ int main(int argc, char **argv) {
             if (pdm_install_file(pkg) == 0) ok++; else fprintf(stderr, "pmm: failed to install %s\n", pkg);
             continue;
         }
+        /* direct URL install: pmm install https://.../foo.zip */
+        if (strncmp(pkg, "http://", 7) == 0 || strncmp(pkg, "https://", 8) == 0) {
+            const char *bn = strrchr(pkg, '/');
+            bn = bn ? bn + 1 : pkg;
+            if (install_file(pkg, bn) == 0) ok++;
+            else fprintf(stderr, "pmm: failed to install %s\n", pkg);
+            continue;
+        }
         /* local file install: forced -dpkg/-msi, or an existing installer file
          * (e.g. `pmm install foo.deb` / `pmm install foo.msi`) */
         if (forced == 1 || forced == 2 || has_installer_ext(pkg)) {
@@ -484,10 +608,12 @@ int main(int argc, char **argv) {
         return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
     }
 
-    if (strcmp(argv[1], "info") == 0) {
-        if (argc < 3) { fprintf(stderr, "pmm: usage: pmm info <file.pdm>\n"); return 1; }
-        return pdm_info(argv[2]) == 0 ? 0 : 1;
-    }
+    if (strcmp(argv[1], "search") == 0)
+        return cmd_search(argc - 2, argv + 2);
+    if (strcmp(argv[1], "info") == 0)
+        return cmd_info(argc - 2, argv + 2);
+    if (strcmp(argv[1], "verify") == 0)
+        return cmd_verify(argc - 2, argv + 2);
 
     fprintf(stderr, "pmm: unknown command '%s' (try 'pmm help')\n", argv[1]);
     return 1;
