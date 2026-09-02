@@ -13,7 +13,7 @@ function pmm_nav_links(string $active): string {
         'install'  => ['install.php',  '安装'],
         'download' => ['download.php', '下载'],
         'status'   => ['servers.php',  '服务状态'],
-        'source'   => ['source.php',   '源码'],
+        'source'   => ['git.php',   '源码'],
     ];
     $html = '';
     foreach ($items as $key => [$href, $label]) {
