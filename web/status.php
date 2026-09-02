@@ -1,64 +1,72 @@
 <?php
-/* Status probe for PMM mirror servers.
- * Server-side GET (curl -k, since we hit IPs/hosts that may not match the
- * browser's TLS expectations) -> returns JSON for the homepage status panel. */
+/* Detailed status probe for the PMM mirror servers.
+ * For each mirror we probe three endpoints (registry index / package download /
+ * web dir listing) and report HTTP code, latency, server software and a
+ * timestamp. Output is JSON for servers.php. No server IPs are exposed. */
+define('PMM_SITE', 1);
+require __DIR__ . '/_common.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 $servers = [
-    ['name'=>'深圳', 'url'=>'https://sz.pmm.parlz.com/mirror/packages/pmm.json'],
-    ['name'=>'香港', 'url'=>'https://pmm.parlz.com/mirror/packages/pmm.json'],
+    ['name' => '深圳', 'region' => 'CN · 深圳', 'host' => 'sz.pmm.parlz.com'],
+    ['name' => '香港', 'region' => 'HK · 香港', 'host' => 'pmm.parlz.com'],
 ];
 
-function probe($url) {
-    $t = microtime(true);
-    /* 1) PHP curl extension (preferred) */
-    if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_NOBODY => true,
-            CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT => 6,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_USERAGENT => 'pmm-status/1.0',
-        ]);
-        curl_exec($ch);
-        $code  = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $errno = curl_errno($ch);
-        curl_close($ch);
-        if ($errno === 0 && $code > 0)
-            return ['online'=>$code < 500, 'code'=>$code, 'ms'=>(int)round((microtime(true)-$t)*1000)];
+/* Probe one URL with shell curl: returns [code, ms, server, ctype]. */
+function probe_url(string $url): array {
+    $cmd = 'curl -k -s -o /dev/null -D - --max-time 8 '
+         . '-w "__PMM_PROBE__%{http_code} %{time_total}" ' . escapeshellarg($url);
+    $out = (string)@shell_exec($cmd);
+    $code = 0; $ms = 0; $server = ''; $ctype = '';
+    if ($out !== '') {
+        /* headers before the marker, "code ms" after it */
+        $pos = strrpos($out, '__PMM_PROBE__');
+        if ($pos !== false) {
+            $meta = trim(substr($out, $pos + strlen('__PMM_PROBE__')));
+            $parts = preg_split('/\s+/', $meta);
+            if (isset($parts[0])) $code = (int)$parts[0];
+            if (isset($parts[1])) $ms = (int)round(((float)$parts[1]) * 1000);
+            $head = substr($out, 0, $pos);
+            if (preg_match('/^Server:\s*(.+)$/mi', $head, $m)) $server = trim($m[1]);
+            if (preg_match('/^Content-Type:\s*(.+)$/mi', $head, $m)) $ctype = trim($m[1]);
+        }
     }
-    /* 2) shell curl (pmm depends on the curl binary, so it is present) */
-    if (function_exists('shell_exec') && !in_array('shell_exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
-        $cmd = 'curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 3 --max-time 6 ' . escapeshellarg($url);
-        $out = trim((string)@shell_exec($cmd));
-        $code = (int)$out;
-        if ($code > 0)
-            return ['online'=>$code < 500, 'code'=>$code, 'ms'=>(int)round((microtime(true)-$t)*1000)];
-    }
-    /* 3) stream context fallback */
-    $ctx = stream_context_create([
-        'http' => ['method'=>'HEAD','timeout'=>6,'follow_location'=>1,'ignore_errors'=>true],
-        'ssl'  => ['verify_peer'=>false,'verify_peer_name'=>false],
-    ]);
-    $fp = @fopen($url, 'r', false, $ctx);
-    $ms = (int)round((microtime(true) - $t) * 1000);
-    if ($fp) { fclose($fp); return ['online'=>true,'code'=>200,'ms'=>$ms]; }
-    return ['online'=>false,'code'=>0,'ms'=>$ms];
+    return [$code, $ms, $server, $ctype];
+}
+
+function probe_check(string $url): array {
+    [$code, $ms, $server, $ctype] = probe_url($url);
+    return [
+        'ok'     => ($code >= 200 && $code < 500 && $code !== 0),
+        'code'   => $code,
+        'ms'     => $ms,
+        'server' => $server,
+        'ctype'  => $ctype,
+    ];
 }
 
 $out = [];
 foreach ($servers as $s) {
-    $st = probe($s['url']);
+    $h = $s['host'];
+    $reg = probe_check("https://{$h}/mirror/packages/pmm.json");
+    $dl  = probe_check("https://{$h}/mirror/packages/pmm/" . PMM_VERSION . "-linux-amd64.pdm");
+    $web = probe_check("https://{$h}/mirror/");
+    $avg = 0; $n = 0;
+    foreach ([$reg, $dl, $web] as $c) if ($c['ok']) { $avg += $c['ms']; $n++; }
+    $avg = $n ? (int)round($avg / $n) : 0;
     $out[] = [
-        'name'   => $s['name'],
-        'online' => $st['online'],
-        'code'   => $st['code'],
-        'ms'     => $st['ms'],
+        'name'    => $s['name'],
+        'region'  => $s['region'],
+        'host'    => $h,
+        'online'  => $reg['ok'],
+        'avg_ms'  => $avg,
+        'checks'  => [
+            ['item' => '注册表 (packages API)', 'url' => "https://{$h}/mirror/packages/pmm.json", 'result' => $reg],
+            ['item' => '下载服务 (.pdm 分发)',  'url' => "https://{$h}/mirror/packages/pmm/" . PMM_VERSION . "-linux-amd64.pdm", 'result' => $dl],
+            ['item' => 'Web 目录浏览',          'url' => "https://{$h}/mirror/",                  'result' => $web],
+        ],
+        'checked_at' => gmdate('Y-m-d\TH:i:s\Z'),
     ];
 }
 echo json_encode($out, JSON_UNESCAPED_UNICODE);
