@@ -5,7 +5,7 @@
  * A status panel monitors the SZ + HK mirror servers via status.php.
  * Static PHP, no dependencies.
  */
-$VERSION = '0.2.8';
+$VERSION = '0.2.8-rc1';
 
 /* Coarse world map, '#'=land, ' '=ocean. Reused as the dot cloud on the globe. */
 $map = [
