@@ -32,3 +32,4 @@
 # source browser cache clone
 web/.src/
 web/git/
+web/releases/

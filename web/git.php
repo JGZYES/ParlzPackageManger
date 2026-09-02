@@ -72,12 +72,17 @@ function gh_api(string $url): array {
     return is_array($d) ? $d : [];
 }
 /* Prefer a local copy of a release asset on this server; fall back to GitHub. */
-function local_asset(string $name): ?string {
-    $cands = [__DIR__ . '/downloads/' . $name, __DIR__ . '/mirror/packages/pmm/' . $name, __DIR__ . '/' . $name];
+/* Prefer a local copy of a release asset (web/releases/<tag>/, web/downloads/,
+ * web/mirror/, web root) on this server; fall back to GitHub. */
+function local_asset(string $name, string $tag = ''): ?string {
+    $cands = [];
+    if ($tag !== '') $cands[] = __DIR__ . '/releases/' . $tag . '/' . $name;
+    $cands = array_merge($cands, [__DIR__ . '/downloads/' . $name, __DIR__ . '/mirror/packages/pmm/' . $name, __DIR__ . '/' . $name]);
     $base = realpath(__DIR__);
     foreach ($cands as $p) {
         if (@is_file($p)) {
             $rp = realpath($p);
+            if (strpos($rp, $base) !== 0) continue;
             return '/' . str_replace('\\', '/', substr(str_replace('\\', '/', $rp), strlen($base) + 1));
         }
     }
@@ -109,8 +114,8 @@ function render_releases(): void {
         <?php if ($assets): ?>
         <div class="rel-assets">
           <?php foreach ($assets as $a): ?>
-            <?php $local = local_asset((string)($a['name'] ?? '')); $href = $local ?: ($a['browser_download_url'] ?? '#'); ?>
-            <a class="rel-asset<?php echo $local ? ' local' : ''; ?>" href="<?php echo esc($href); ?>" target="_blank" rel="noopener">
+            <?php $local = local_asset((string)($a['name'] ?? ''), $tag); $href = $local ?: ($a['browser_download_url'] ?? '#'); ?>
+            <a class="rel-asset<?php echo $local ? ' local' : ''; ?>" href="<?php echo esc($href); ?>" target="_blank" rel="noopener"<?php if ($local) echo ' download'; ?>>
               <?php echo esc($a['name'] ?? 'asset'); ?> <span class="rel-size"><?php echo isset($a['size']) ? fmt_size((int)$a['size']) : ''; ?></span>
             </a>
           <?php endforeach; ?>
