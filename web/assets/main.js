@@ -20,9 +20,12 @@
   /* ---------- Copy command buttons ---------- */
   document.querySelectorAll(".copy-btn").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      var code = document.querySelector('[data-pane="' + btn.getAttribute("data-copy") + '"] code');
-      if (!code) return;
-      var txt = code.innerText;
+      var txt = btn.getAttribute("data-copy-text");
+      if (!txt) {
+        var code = document.querySelector('[data-pane="' + btn.getAttribute("data-copy") + '"] code');
+        if (!code) return;
+        txt = code.innerText;
+      }
       (navigator.clipboard && navigator.clipboard.writeText)
         ? navigator.clipboard.writeText(txt).then(ok, fail)
         : fallback(txt);

@@ -30,9 +30,11 @@ if [ "$arch" != "amd64" ]; then
 fi
 echo "pmm: 下载 v$VER ($os/$arch) ..."
 TMP="$(mktemp)"
-if ! curl -fsSL --max-time 120 -o "$TMP" "$URL"; then
+# --progress-bar shows a live download progress line (tty only)
+if ! curl -fL --progress-bar --max-time 300 -o "$TMP" "$URL"; then
   rm -f "$TMP"; echo "pmm: 下载失败（$URL）"; exit 1
 fi
+echo ""
 chmod +x "$TMP"
 
 # ---- 安装 ----

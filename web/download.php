@@ -18,9 +18,12 @@ pmm_page_open('DOWNLOAD', '下载 PMM');
       <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm" download>
         <span class="dl-os">Linux</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="install.sh" download>
-        <span class="dl-os">Linux/macOS</span><span class="dl-file">install.sh · 一键安装</span><span class="dl-arrow">↓</span>
-      </a>
+      <div class="dl-card">
+        <span class="dl-os">Linux/macOS</span>
+        <span class="dl-file">一键安装 · 复制命令</span>
+        <div class="dl-cmd"><code>curl -sSL https://pmm.parlz.com/install.sh | bash</code></div>
+        <button class="copy-btn" data-copy-text="curl -sSL https://pmm.parlz.com/install.sh | bash" type="button">复制命令</button>
+      </div>
       <a class="dl-card" href="https://github.com/JGZYES/ParlzPackageManger/releases/latest" target="_blank" rel="noopener">
         <span class="dl-os">全部</span><span class="dl-file">GitHub Releases / 源码</span><span class="dl-arrow">↗</span>
       </a>
