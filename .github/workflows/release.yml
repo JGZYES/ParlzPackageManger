@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (defaults to dev)'
+        required: false
+        default: dev
 
 permissions:
   contents: write
@@ -36,7 +41,7 @@ jobs:
       - name: Build pmm
         run: |
           mkdir -p out
-          VER=${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+          VER=${{ github.ref_type == 'tag' && github.ref_name || (github.event.inputs.version != '' && github.event.inputs.version || 'dev') }}
           VER=${VER#v}
           ${{ matrix.cc }} -O2 -Wall -static -std=c11 -D_FORTIFY_SOURCE=0 -U_FORTIFY_SOURCE -DPMM_VERSION=\"$VER\" -o out/pmm${{ matrix.ext }} \
             src/main.c src/json.c src/ini.c src/pmm.c src/http.c src/repo.c src/install.c \
@@ -45,8 +50,8 @@ jobs:
       - name: Package installers
         run: |
           sudo apt-get update >/dev/null 2>&1
-          sudo apt-get install -y zip dpkg-dev xxd >/dev/null 2>&1 || true
-          VER=${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+          sudo apt-get install -y zip dpkg-dev xxd rpm >/dev/null 2>&1 || true
+          VER=${{ github.ref_type == 'tag' && github.ref_name || (github.event.inputs.version != '' && github.event.inputs.version || 'dev') }}
           VER=${VER#v}
 
           # -- install.sh helper (uploaded to the release, also served at /install.sh)
@@ -80,6 +85,30 @@ jobs:
             ( cd pkg/usr/local/bin && md5sum pmm ) | sed 's#  pmm#  usr/local/bin/pmm#' > pkg/DEBIAN/md5sums
             dpkg-deb --build --root-owner-group pkg "out/pmm_${VER}_amd64.deb"
             rm -rf pkg
+
+            # -- Linux: .rpm
+            mkdir -p rpms/{BUILD,RPMS,SOURCES,SPECS}
+            cp out/pmm rpms/SOURCES/pmm
+            {
+              echo "Name: pmm"
+              echo "Version: $VER"
+              echo "Release: 1"
+              echo "Summary: ParlzPackageManager (PMM) - cross-platform C package manager"
+              echo "License: GPL-3.0"
+              echo "BuildArch: x86_64"
+              echo ""
+              echo "%description"
+              echo "A cross-platform (Windows/Linux/macOS) package manager written in C,"
+              echo "with apt-style multi-mirror, git release installs and .pdm packages."
+              echo "%install"
+              echo "mkdir -p %{buildroot}/usr/local/bin"
+              echo "install -m 0755 %{_sourcedir}/pmm %{buildroot}/usr/local/bin/pmm"
+              echo "%files"
+              echo "/usr/local/bin/pmm"
+            } > rpms/SPECS/pmm.spec
+            rpmbuild -bb --define "_topdir $PWD/rpms" --define "_sourcedir $PWD/rpms/SOURCES" rpms/SPECS/pmm.spec
+            find rpms -name '*.rpm' -exec mv {} out/ \;
+            rm -rf rpms
           fi
 
       - name: Upload artifact
