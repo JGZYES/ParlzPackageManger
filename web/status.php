@@ -13,12 +13,39 @@ $servers = [
     ['name' => '香港', 'region' => 'HK · 香港', 'host' => 'pmm.parlz.com'],
 ];
 
-/* Probe one URL with shell curl: returns [code, ms, server, ctype]. */
+/* Probe one URL: returns [code, ms, server, ctype].
+ * Prefers the PHP curl extension (reliable CURLINFO_TOTAL_TIME for ms, and works
+ * where shell_exec/curl-binary are unavailable); falls back to shell curl. */
 function probe_url(string $url): array {
+    $code = 0; $ms = 0; $server = ''; $ctype = '';
+
+    /* 1) PHP curl extension */
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_NOBODY => true,
+            CURLOPT_HEADER => true,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_USERAGENT => 'pmm-status/1.0',
+        ]);
+        $resp = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $ms   = (int)round(((float)curl_getinfo($ch, CURLINFO_TOTAL_TIME)) * 1000.0);
+        $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        if (preg_match('/^Server:\s*(.+)$/mi', (string)$resp, $m)) $server = trim($m[1]);
+        curl_close($ch);
+        if ($code > 0) return [$code, $ms, $server, $ctype];
+    }
+
+    /* 2) shell curl (works where the binary exists; parses -D - headers + -w marker) */
     $cmd = 'curl -k -s -o /dev/null -D - --max-time 8 '
          . '-w "__PMM_PROBE__%{http_code} %{time_total}" ' . escapeshellarg($url);
     $out = (string)@shell_exec($cmd);
-    $code = 0; $ms = 0; $server = ''; $ctype = '';
     if ($out !== '') {
         /* headers before the marker, "code ms" after it */
         $pos = strrpos($out, '__PMM_PROBE__');
