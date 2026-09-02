@@ -31,12 +31,13 @@ function pmm_header(string $active, string $title): void {
 '<meta name="viewport" content="width=device-width, initial-scale=1.0">' . "\n" .
 '<title>' . $t . ' · ParlzPackageManager</title>' . "\n" .
 '<meta name="description" content="ParlzPackageManager (PMM) — 用 C 语言编写、跨 Windows/Linux/macOS 的包管理器。">' . "\n" .
-'<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'%3E%3Crect width=\'32\' height=\'32\' rx=\'7\' fill=\'%23050505\'/%3E%3Ctext x=\'16\' y=\'23\' font-size=\'17\' font-family=\'monospace\' fill=\'%23cfcfcf\' text-anchor=\'middle\'%3Epmm%3C/text%3E%3C/svg%3E">' . "\n" .
+'<link rel="icon" href="icon.png">' . "\n" .
+'<link rel="apple-touch-icon" href="icon.png">' . "\n" .
 '<link rel="stylesheet" href="assets/style.css">' . "\n" .
 '</head>' . "\n" .
 '<body>' . "\n" .
 '<nav class="nav">' . "\n" .
-'  <a class="brand" href="index.php"><span class="brand-mark">pmm</span><span class="brand-name">ParlzPackageManager</span></a>' . "\n" .
+'  <a class="brand" href="index.php"><img class="brand-img" src="icon.png" alt="PMM"><span class="brand-name">ParlzPackageManager</span></a>' . "\n" .
 '  <ul class="nav-links">' . "\n" .
 '    ' . pmm_nav_links($active) . "\n" .
 '    <li><a class="btn btn-sm" href="https://github.com/JGZYES/ParlzPackageManger" target="_blank" rel="noopener">GitHub ↗</a></li>' . "\n" .

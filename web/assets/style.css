@@ -173,3 +173,7 @@ code{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Co
 .svc-badge.down{color:#bbb;border-style:dashed}
 .svc-ok{color:#fff;font-weight:700}
 .svc-bad{color:#9a9a9a}
+
+/* nav logo image */
+.brand{display:flex;align-items:center;gap:10px}
+.brand-img{width:30px;height:30px;border-radius:7px;object-fit:cover;border:1px solid var(--line)}
