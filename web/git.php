@@ -124,30 +124,30 @@ function render_releases(): void {
         <?php if ($body !== ''): ?>
         <div class="rel-body mdbody"><?php echo md($body); ?></div>
         <?php endif; ?>
+        <?php if ($assets): ?>
+        <div class="rel-assets">
+          <div class="rel-assets-h">Assets · 下载</div>
+          <div class="rel-assets-list">
+            <?php foreach ($assets as $a):
+                $local = local_asset((string)($a['name'] ?? ''), $tag);
+                $href = $local ?: ($a['browser_download_url'] ?? '#');
+                $sz = isset($a['size']) ? fmt_size((int)$a['size']) : '';
+            ?>
+            <div class="rel-asset-row">
+              <a class="rel-asset<?php echo $local ? ' local' : ''; ?>"
+                 href="<?php echo esc($href); ?>" title="<?php echo esc($href); ?>"
+                 <?php echo $local ? ' download' : ' target="_blank" rel="noopener"'; ?>>
+                <span class="rel-a-ico">&#128196;</span> <?php echo esc($a['name'] ?? 'asset'); ?>
+              </a>
+              <span class="rel-size"><?php echo esc($sz); ?></span>
+              <a class="rel-dl" href="<?php echo esc($href); ?>" <?php echo $local ? ' download' : ' target="_blank" rel="noopener"'; ?>>下载</a>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <?php endif; ?>
         <p class="rel-tagline">标签 <code><?php echo esc($tag); ?></code></p>
       </div>
-      <?php if ($assets): ?>
-      <div class="rel-assets-card">
-        <div class="rel-assets-h">Assets · 下载</div>
-        <div class="rel-assets-list">
-          <?php foreach ($assets as $a):
-              $local = local_asset((string)($a['name'] ?? ''), $tag);
-              $href = $local ?: ($a['browser_download_url'] ?? '#');
-              $sz = isset($a['size']) ? fmt_size((int)$a['size']) : '';
-          ?>
-          <div class="rel-asset-row">
-            <a class="rel-asset<?php echo $local ? ' local' : ''; ?>"
-               href="<?php echo esc($href); ?>" title="<?php echo esc($href); ?>"
-               <?php echo $local ? ' download' : ' target="_blank" rel="noopener"'; ?>>
-              <span class="rel-a-ico">&#128196;</span> <?php echo esc($a['name'] ?? 'asset'); ?>
-            </a>
-            <span class="rel-size"><?php echo esc($sz); ?></span>
-            <a class="rel-dl" href="<?php echo esc($href); ?>" <?php echo $local ? ' download' : ' target="_blank" rel="noopener"'; ?>>下载</a>
-          </div>
-          <?php endforeach; ?>
-        </div>
-      </div>
-      <?php endif; ?>
     </div>
 <?php $i++; endforeach;
     echo '</div></div>';
@@ -226,7 +226,6 @@ pmm_header('source', '源码浏览');
         .rel-main{display:grid;gap:24px;min-width:0}
         .rel-entry{display:grid;gap:14px}
         .rel-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
-        .rel-assets-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 22px}
         .rel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
         .rel-version{font-weight:800;font-size:19px;color:#fff;margin:0;display:flex;align-items:center;gap:9px;letter-spacing:-.3px}
         .rel-ico{color:var(--dim);font-size:16px}
@@ -236,7 +235,8 @@ pmm_header('source', '源码浏览');
         .rel-date{font-size:12.5px;color:var(--dim);font-family:ui-monospace,monospace}
         .rel-body{border-top:1px solid var(--line);padding-top:14px;margin-top:4px}
         .rel-tagline{font-size:12px;color:var(--dim);margin-top:12px}
-        .rel-assets-card .rel-assets-h{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:var(--dim);margin-bottom:12px;font-weight:700}
+        .rel-assets{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+        .rel-assets-h{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:var(--dim);margin-bottom:12px;font-weight:700}
         .rel-assets-list{display:grid;gap:8px}
         .rel-asset-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#0c1017}
         .rel-asset{display:inline-flex;align-items:center;gap:7px;color:var(--text);font-family:ui-monospace,monospace;font-size:12.5px;text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
