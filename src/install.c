@@ -237,9 +237,19 @@ static int install_path(const char *path, const char *name) {
     }
 
     if (has_suffix(bname, ".deb") && os == OS_LINUX) {
-        snprintf(cmd, sizeof(cmd), "sudo dpkg -i \"%s\"", path);
+        /* Debian native dpkg; elsewhere (e.g. CentOS) convert via alien */
+        snprintf(cmd, sizeof(cmd),
+            "if command -v dpkg >/dev/null 2>&1; then sudo dpkg -i \"%s\"; "
+            "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
+            "else echo 'pmm: need alien to install .deb here (sudo apt-get install alien | sudo yum install alien)' 1>&2; exit 1; fi",
+            path, path);
     } else if (has_suffix(bname, ".rpm") && os == OS_LINUX) {
-        snprintf(cmd, sizeof(cmd), "sudo rpm -Uvh \"%s\"", path);
+        /* RPM-based native rpm; elsewhere (e.g. Debian) convert via alien */
+        snprintf(cmd, sizeof(cmd),
+            "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
+            "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
+            "else echo 'pmm: need alien to install .rpm here (sudo apt-get install alien)' 1>&2; exit 1; fi",
+            path, path);
     } else if (has_suffix(bname, ".apk") && os == OS_LINUX) {
         /* Alpine: apk add if available, else extract */
         snprintf(cmd, sizeof(cmd),

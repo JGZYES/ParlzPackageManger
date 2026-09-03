@@ -472,9 +472,10 @@ static void print_help(void) {
     printf("  pmm install <pkg>                     install from registry mirrors (apt-style)\n");
     printf("  pmm install <file.pdm>                install a local .pdm package\n");
     printf("  pmm install <pkg> [pkg2 ...]          install several packages\n");
-    printf("  pmm install <file.deb|file.msi|...>   install a local package file\n");
+    printf("  pmm install <file.deb|file.msi|file.rpm|...>  install a local package file\n");
     printf("  pmm install -dpkg <x.deb>             install a .deb (Linux)\n");
     printf("  pmm install -msi <x.msi>              install an .msi (Windows)\n");
+    printf("  pmm install -rpm <x.rpm>              install an .rpm (any Linux, incl. Debian/RPM)\n");
     printf("  pmm install <https://...>             install a file from a URL\n");
     printf("  pmm search <keyword>                  list registry packages matching keyword\n");
     printf("  pmm info <package|file.pdm>           registry/local package info\n");
@@ -575,22 +576,23 @@ int main(int argc, char **argv) {
                           strcmp(argv[2], "--forgejo") == 0))
             return cmd_install_git(argc - 3, argv + 3, argv[2] + 2);
     if (argc < 3) {
-        fprintf(stderr, "pmm: usage: pmm install <pkg|file.deb|file.msi|file.pdm> [pkg2 ...]\n"
+        fprintf(stderr, "pmm: usage: pmm install <pkg|file.deb|file.msi|file.rpm|file.pdm> [pkg2 ...]\n"
                         "           | pmm install -dpkg <x.deb>   install a .deb (Linux)\n"
-                        "           | pmm install -msi <x.msi>    install an .msi (Windows)\n"
+                        "           | pmm install -rpm <x.rpm>    install an .rpm (any Linux, incl. Debian/RPM)\n"
                         "           | pmm install --git <repo>\n");
         return 1;
     }
     /* collect one or more package arguments (each may carry an inline version
      * spec like nodejs>=24,<25); optional -v/--version applies to a single one */
     const char *version = NULL;
-    int forced = 0;   /* 1 = -dpkg, 2 = -msi (install a local package by type) */
+    int forced = 0;   /* 1 = -dpkg, 2 = -msi, 3 = -rpm (install a local package by type) */
     const char *items[64]; int ni = 0;
     for (int i = 2; i < argc; i++) {
         const char *a = argv[i];
         if (strcmp(a, "--no-cache") == 0) { pmm_no_cache = 1; continue; }
         if (strcmp(a, "-dpkg") == 0) { forced = 1; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
         if (strcmp(a, "-msi") == 0)  { forced = 2; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
+        if (strcmp(a, "-rpm") == 0)  { forced = 3; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
         if (strncmp(a, "-v", 2) == 0 && a[2]) { version = a + 2; continue; }
         if (strcmp(a, "-v") == 0 && i + 1 < argc) { version = argv[++i]; continue; }
         if (strcmp(a, "--version") == 0 && i + 1 < argc) { version = argv[++i]; continue; }
@@ -635,13 +637,14 @@ int main(int argc, char **argv) {
             bn = bn ? bn + 1 : pkg;
             if (forced == 1) bn = "download.deb";
             else if (forced == 2) bn = "download.msi";
+            else if (forced == 3) bn = "download.rpm";
             if (install_file(pkg, bn) == 0) ok++;
             else fprintf(stderr, "pmm: failed to install %s\n", pkg);
             continue;
         }
         /* local file install: forced -dpkg/-msi, or an existing installer file
          * (e.g. `pmm install foo.deb` / `pmm install foo.msi`) */
-        if (forced == 1 || forced == 2 || has_installer_ext(pkg)) {
+        if (forced == 1 || forced == 2 || forced == 3 || has_installer_ext(pkg)) {
             if (install_local_file(pkg) == 0) ok++;
             else fprintf(stderr, "pmm: failed to install %s\n", pkg);
             continue;
