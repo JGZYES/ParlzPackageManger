@@ -154,8 +154,9 @@ static int install_path(const char *path, const char *name);
 
 int pmm_no_cache = 0;   /* --no-cache: drop cached file before download */
 
-/* Extract the data.tar.gz member of a .deb (an ar container) to `outdata`.
- * Pure C (no ar/dpkg required); the caller then uses `tar` to unpack. */
+/* Extract the data.tar.* member of a .deb (an ar container) to `outdata`.
+ * Pure C (no ar/dpkg required). Returns compression code:
+ *   0=gz 1=zst 2=xz 3=bz2, or -1 on failure. Caller unpacks with `tar`. */
 static int deb_extract_data(const char *deb, const char *outdata) {
     FILE *f = fopen(deb, "rb");
     if (!f) return -1;
@@ -164,11 +165,16 @@ static int deb_extract_data(const char *deb, const char *outdata) {
     char hdr[60];
     while (fread(hdr, 1, 60, f) == 60) {
         char name[17];
-        memcpy(name, hdr, 16); name[16] = 0;
+        memcpy(name, hdr, 14); name[14] = 0;   /* member name without trailing / and .tar.<ext> handled below */
         char *slash = strchr(name, '/');
         if (slash) *slash = 0;
         size_t sz = (size_t)strtoul(hdr + 48, NULL, 10);
-        if (strcmp(name, "data.tar.gz") == 0) {
+        int comp = -1;
+        if (strncmp(name, "data.tar.gz", 11) == 0) comp = 0;
+        else if (strncmp(name, "data.tar.zst", 12) == 0) comp = 1;
+        else if (strncmp(name, "data.tar.xz", 11) == 0) comp = 2;
+        else if (strncmp(name, "data.tar.bz2", 12) == 0) comp = 3;
+        if (comp >= 0) {
             FILE *o = fopen(outdata, "wb");
             if (!o) { fclose(f); return -1; }
             char buf[65536]; size_t left = sz;
@@ -179,7 +185,7 @@ static int deb_extract_data(const char *deb, const char *outdata) {
                 left -= n;
             }
             fclose(o); fclose(f);
-            return left == 0 ? 0 : -1;
+            return left == 0 ? comp : -1;
         }
         fseek(f, (long)sz + (sz % 2), SEEK_CUR);
     }
@@ -311,11 +317,13 @@ static int install_path(const char *path, const char *name) {
         pmm_cache_dir(cache, sizeof(cache));
         snprintf(fdata, sizeof(fdata), "%s/.pmm-deb-data.tar.gz", cache);
         snprintf(fstage, sizeof(fstage), "%s/.pmm-deb-stage", cache);
-        if (deb_extract_data(path, fdata) == 0) {
+        int dc = deb_extract_data(path, fdata);
+        if (dc >= 0) {
+            const char *tflag = dc == 1 ? "--zstd -x" : dc == 2 ? "-xJ" : dc == 3 ? "-xj" : "-xz";
             snprintf(cmd, sizeof(cmd),
-                "rm -rf \"%s\" && mkdir -p \"%s\" && tar -xzf \"%s\" -C \"%s\" "
+                "rm -rf \"%s\" && mkdir -p \"%s\" && tar %sf \"%s\" -C \"%s\" "
                 "&& sudo cp -a \"%s\"/. / && rm -rf \"%s\" \"%s\"",
-                fstage, fstage, fdata, fstage, fstage, fstage, fdata);
+                fstage, fstage, tflag, fdata, fstage, fstage, fstage, fdata);
         } else {
             snprintf(cmd, sizeof(cmd),
                 "if command -v dpkg >/dev/null 2>&1; then sudo dpkg -i \"%s\"; "

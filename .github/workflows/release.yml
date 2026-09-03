@@ -83,7 +83,7 @@ jobs:
               echo " and SHA-256/SHA-1 verification."
             } > pkg/DEBIAN/control
             ( cd pkg/usr/local/bin && md5sum pmm ) | sed 's#  pmm#  usr/local/bin/pmm#' > pkg/DEBIAN/md5sums
-            dpkg-deb --build --root-owner-group pkg "out/pmm_${VER}_amd64.deb"
+            dpkg-deb --build -Zgzip --root-owner-group pkg "out/pmm_${VER}_amd64.deb"
             rm -rf pkg
 
             # -- Linux: .rpm
