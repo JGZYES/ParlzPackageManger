@@ -215,7 +215,7 @@ static int name_hints_other_os(const char *name, PmmOS os) {
 
 int asset_matches_os(const char *filename, PmmOS os) {
     static const char *win_exts[] = { ".exe", ".msi", ".zip", ".7z", NULL };
-    static const char *linux_exts[] = { ".deb", ".rpm", ".appimage", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2", ".pkg.tar.zst", NULL };
+    static const char *linux_exts[] = { ".deb", ".rpm", ".apk", ".appimage", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2", ".pkg.tar.zst", NULL };
     static const char *mac_exts[] = { ".dmg", ".pkg", ".app.zip", ".tar.gz", ".tgz", NULL };
     const char **exts = NULL;
     switch (os) {

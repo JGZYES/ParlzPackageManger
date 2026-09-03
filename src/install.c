@@ -240,6 +240,16 @@ static int install_path(const char *path, const char *name) {
         snprintf(cmd, sizeof(cmd), "sudo dpkg -i \"%s\"", path);
     } else if (has_suffix(bname, ".rpm") && os == OS_LINUX) {
         snprintf(cmd, sizeof(cmd), "sudo rpm -Uvh \"%s\"", path);
+    } else if (has_suffix(bname, ".apk") && os == OS_LINUX) {
+        /* Alpine: apk add if available, else extract */
+        snprintf(cmd, sizeof(cmd),
+                 "if command -v apk >/dev/null 2>&1; then sudo apk add --allow-untrusted \"%s\"; "
+                 "else tar -xf \"%s\" -C \"%s\"; fi", path, path, dest);
+    } else if (has_suffix(bname, ".pkg.tar.zst") && os == OS_LINUX) {
+        /* Arch: pacman -U if available, else extract */
+        snprintf(cmd, sizeof(cmd),
+                 "if command -v pacman >/dev/null 2>&1; then sudo pacman -U --noconfirm \"%s\"; "
+                 "else tar --zstd -xf \"%s\" -C \"%s\"; fi", path, path, dest);
     } else if (has_suffix(bname, ".appimage") && os == OS_LINUX) {
         snprintf(cmd, sizeof(cmd), "chmod +x \"%s\" && mv -f \"%s\" \"%s/\"", path, path, dest);
     } else if ((has_suffix(bname, ".tar.gz") || has_suffix(bname, ".tgz") ||

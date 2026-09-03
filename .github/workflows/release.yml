@@ -50,7 +50,7 @@ jobs:
       - name: Package installers
         run: |
           sudo apt-get update >/dev/null 2>&1
-          sudo apt-get install -y zip dpkg-dev xxd rpm >/dev/null 2>&1 || true
+          sudo apt-get install -y zip dpkg-dev xxd rpm zstd imagemagick >/dev/null 2>&1 || true
           VER=${{ github.ref_type == 'tag' && github.ref_name || (github.event.inputs.version != '' && github.event.inputs.version || 'dev') }}
           VER=${VER#v}
 
@@ -109,6 +109,57 @@ jobs:
             rpmbuild -bb --define "_topdir $PWD/rpms" --define "_sourcedir $PWD/rpms/SOURCES" rpms/SPECS/pmm.spec
             find rpms -name '*.rpm' -exec mv {} out/ \;
             rm -rf rpms
+
+            # -- Alpine .apk (gzip'd tar: .PKGINFO + usr/bin/pmm)
+            rm -rf apk && mkdir -p apk/usr/bin
+            cp out/pmm apk/usr/bin/pmm
+            {
+              echo "pkgname = pmm"
+              echo "pkgver = $VER"
+              echo "pkgdesc = ParlzPackageManager (PMM) - cross-platform C package manager"
+              echo "url = https://pmm.parlz.com"
+              echo "arch = x86_64"
+              echo "license = GPL-3.0"
+              echo "size = $(stat -c%s out/pmm)"
+            } > apk/.PKGINFO
+            ( cd apk && tar -czf "../out/pmm-${VER}.apk" .PKGINFO usr )
+            rm -rf apk
+
+            # -- Arch .pkg.tar.zst (tar zstd: .PKGINFO + usr/bin/pmm)
+            rm -rf pk && mkdir -p pk/usr/bin
+            cp out/pmm pk/usr/bin/pmm
+            {
+              echo "pkgname = pmm"
+              echo "pkgver = $VER-1"
+              echo "pkgdesc = ParlzPackageManager (PMM)"
+              echo "url = https://pmm.parlz.com"
+              echo "arch = x86_64"
+              echo "license = GPL-3.0"
+            } > pk/.PKGINFO
+            ( cd pk && tar --use-compress-program=zstd -cf "../out/pmm-${VER}-1-x86_64.pkg.tar.zst" .PKGINFO usr )
+            rm -rf pk
+
+            # -- AppImage (single-file): AppDir + appimagetool
+            rm -rf AppDir && mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+            cp out/pmm AppDir/usr/bin/pmm
+            printf '#!/bin/sh\nSELF=$(readlink -f "$0"); APPDIR=$(dirname "$SELF")\nexec "$APPDIR/usr/bin/pmm" "$@"\n' > AppDir/AppRun
+            chmod +x AppDir/AppRun
+            printf '[Desktop Entry]\nName=PMM\nExec=pmm\nType=Application\nIcon=pmm\nCategories=Development;\n' > AppDir/usr/share/applications/pmm.desktop
+            if command -v convert >/dev/null 2>&1; then
+              convert -size 256x256 xc:"#111111" -fill white -pointsize 90 -gravity center -annotate 0 "pmm" \
+                AppDir/usr/share/icons/hicolor/256x256/apps/pmm.png 2>/dev/null || true
+            fi
+            if [ ! -s AppDir/usr/share/icons/hicolor/256x256/apps/pmm.png ]; then
+              printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/aLvAAAAAElFTkSuQmCC' | base64 -d > AppDir/usr/share/icons/hicolor/256x256/apps/pmm.png 2>/dev/null || true
+            fi
+            if [ ! -x /tmp/appimagetool ]; then
+              curl -fsSL -o /tmp/appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage 2>/dev/null || true
+              chmod +x /tmp/appimagetool 2>/dev/null || true
+            fi
+            if [ -x /tmp/appimagetool ]; then
+              ( cd AppDir && /tmp/appimagetool --appimage-extract-and-run -n . "../out/pmm-${VER}-x86_64.AppImage" 2>/dev/null ) || true
+            fi
+            rm -rf AppDir
           fi
 
       - name: Upload artifact
