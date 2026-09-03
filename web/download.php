@@ -21,6 +21,12 @@ pmm_page_open('DOWNLOAD', '下载 PMM');
       <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>-linux-amd64.pdm" download>
         <span class="dl-os">.pdm 包</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>-linux-amd64.pdm</span><span class="dl-arrow">↓</span>
       </a>
+      <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>.apk" download>
+        <span class="dl-os">Alpine</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>.apk</span><span class="dl-arrow">↓</span>
+      </a>
+      <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>.pkg.tar.zst" download>
+        <span class="dl-os">Arch</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>.pkg.tar.zst</span><span class="dl-arrow">↓</span>
+      </a>
       <a class="dl-card" href="downloads/install.sh" download>
         <span class="dl-os">Linux/macOS</span><span class="dl-file">install.sh · 一键安装脚本</span><span class="dl-arrow">↓</span>
       </a>

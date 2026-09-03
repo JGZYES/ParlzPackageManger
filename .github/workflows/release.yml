@@ -153,7 +153,7 @@ jobs:
               printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/aLvAAAAAElFTkSuQmCC' | base64 -d > AppDir/usr/share/icons/hicolor/256x256/apps/pmm.png 2>/dev/null || true
             fi
             if [ ! -x /tmp/appimagetool ]; then
-              curl -fsSL -o /tmp/appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage 2>/dev/null || true
+              curl -fsSL -o /tmp/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage 2>/dev/null || true
               chmod +x /tmp/appimagetool 2>/dev/null || true
             fi
             if [ -x /tmp/appimagetool ]; then
