@@ -205,10 +205,16 @@ const char *pmm_cache_dir(char *buf, size_t size) {
 const char *pmm_install_dir(char *buf, size_t size) {
     const char *env = getenv("PMM_INSTALL_DIR");
     if (env && *env) { snprintf(buf, size, "%s", env); }
-    else {
+    else if (g_base_path[0]) {
+        snprintf(buf, size, "%s", g_base_path);   /* -p <path>: flat install into the specified dir */
+    } else {
+#ifdef _WIN32
         char base[1024];
         pmm_base_dir(base, sizeof(base));
-        snprintf(buf, size, "%s/bin", base);
+        snprintf(buf, size, "%s/bin", base);      /* Windows default -> <base>\bin */
+#else
+        snprintf(buf, size, "/usr/local/bin");     /* Linux/macOS default -> system-wide (on PATH) */
+#endif
     }
     mkdir_p(buf);
     return buf;
