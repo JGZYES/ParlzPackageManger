@@ -154,6 +154,75 @@ static int install_path(const char *path, const char *name);
 
 int pmm_no_cache = 0;   /* --no-cache: drop cached file before download */
 
+/* Extract the data.tar.gz member of a .deb (an ar container) to `outdata`.
+ * Pure C (no ar/dpkg required); the caller then uses `tar` to unpack. */
+static int deb_extract_data(const char *deb, const char *outdata) {
+    FILE *f = fopen(deb, "rb");
+    if (!f) return -1;
+    char magic[8];
+    if (fread(magic, 1, 8, f) != 8 || memcmp(magic, "!<arch>\n", 8) != 0) { fclose(f); return -1; }
+    char hdr[60];
+    while (fread(hdr, 1, 60, f) == 60) {
+        char name[17];
+        memcpy(name, hdr, 16); name[16] = 0;
+        char *slash = strchr(name, '/');
+        if (slash) *slash = 0;
+        size_t sz = (size_t)strtoul(hdr + 48, NULL, 10);
+        if (strcmp(name, "data.tar.gz") == 0) {
+            FILE *o = fopen(outdata, "wb");
+            if (!o) { fclose(f); return -1; }
+            char buf[65536]; size_t left = sz;
+            while (left) {
+                size_t n = fread(buf, 1, left > sizeof(buf) ? sizeof(buf) : left, f);
+                if (!n) break;
+                if (fwrite(buf, 1, n, o) != n) break;
+                left -= n;
+            }
+            fclose(o); fclose(f);
+            return left == 0 ? 0 : -1;
+        }
+        fseek(f, (long)sz + (sz % 2), SEEK_CUR);
+    }
+    fclose(f);
+    return -1;
+}
+
+static unsigned rpm_be32(const unsigned char *p) {
+    return ((unsigned)p[0] << 24) | ((unsigned)p[1] << 16) | ((unsigned)p[2] << 8) | (unsigned)p[3];
+}
+
+/* Extract the payload (gzip/zstd'd cpio) of an RPM to `out`. Pure C header walk
+ * (lead -> signature header -> main header), no rpm/rpm2cpio required. */
+static int rpm_extract_payload(const char *rpm, const char *out) {
+    FILE *f = fopen(rpm, "rb");
+    if (!f) return -1;
+    unsigned char lead[96];
+    if (fread(lead, 1, 96, f) != 96 || !(lead[0]==0xed && lead[1]==0xab && lead[2]==0xee && lead[3]==0xdb)) {
+        fclose(f); return -1;
+    }
+    /* signature header (rpm header struct): 16 bytes + index + data, aligned to 8 */
+    unsigned char sh[16];
+    if (fread(sh, 1, 16, f) != 16) { fclose(f); return -1; }
+    unsigned sh_ni = rpm_be32(sh + 8), sh_hs = rpm_be32(sh + 12);
+    long sig_total = (long)(16 + sh_ni*16 + sh_hs);
+    sig_total = (sig_total + 7) & ~7L;
+    fseek(f, 96 + sig_total, SEEK_SET);
+    /* main header */
+    unsigned char mh[16];
+    if (fread(mh, 1, 16, f) != 16 ||
+        !(mh[0]==0x8e && mh[1]==0xad && mh[2]==0xe8 && mh[3]==0x01)) { fclose(f); return -1; }
+    unsigned mh_ni = rpm_be32(mh + 8), mh_hs = rpm_be32(mh + 12);
+    long payload = ftell(f) + (long)mh_ni*16 + (long)mh_hs;
+    fseek(f, payload, SEEK_SET);
+    FILE *o = fopen(out, "wb");
+    if (!o) { fclose(f); return -1; }
+    char buf[65536]; size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0)
+        if (fwrite(buf, 1, n, o) != n) break;
+    fclose(o); fclose(f);
+    return 0;
+}
+
 int install_file(const char *url, const char *name) {
     char cache[1024], path[1200];
     pmm_cache_dir(cache, sizeof(cache));
@@ -237,23 +306,44 @@ static int install_path(const char *path, const char *name) {
     }
 
     if (has_suffix(bname, ".deb") && os == OS_LINUX) {
-        /* Self-extract: dpkg native, else pull data.tar.gz via ar and unpack to /,
-         * else convert via alien. No format-conversion bloat required. */
-        snprintf(cmd, sizeof(cmd),
-            "if command -v dpkg >/dev/null 2>&1; then sudo dpkg -i \"%s\"; "
-            "elif command -v ar >/dev/null 2>&1; then T=$(mktemp -d); "
-            "(cd \"$T\" && ar p \"%s\" data.tar.gz | tar -xzf -); sudo cp -a \"$T\"/. /; rm -rf \"$T\"; "
-            "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
-            "else echo 'pmm: need dpkg, ar+tar or alien for .deb' 1>&2; exit 1; fi",
-            path, path, path);
+        /* Self-extract in C (no ar/dpkg needed): pull data.tar.gz, tar it out */
+        char cache[1024], fdata[1300], fstage[1300];
+        pmm_cache_dir(cache, sizeof(cache));
+        snprintf(fdata, sizeof(fdata), "%s/.pmm-deb-data.tar.gz", cache);
+        snprintf(fstage, sizeof(fstage), "%s/.pmm-deb-stage", cache);
+        if (deb_extract_data(path, fdata) == 0) {
+            snprintf(cmd, sizeof(cmd),
+                "rm -rf \"%s\" && mkdir -p \"%s\" && tar -xzf \"%s\" -C \"%s\" "
+                "&& sudo cp -a \"%s\"/. / && rm -rf \"%s\" \"%s\"",
+                fstage, fstage, fdata, fstage, fstage, fstage, fdata);
+        } else {
+            snprintf(cmd, sizeof(cmd),
+                "if command -v dpkg >/dev/null 2>&1; then sudo dpkg -i \"%s\"; "
+                "elif command -v ar >/dev/null 2>&1; then T=$(mktemp -d); "
+                "(cd \"$T\" && ar p \"%s\" data.tar.gz | tar -xzf -); sudo cp -a \"$T\"/. /; rm -rf \"$T\"; "
+                "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
+                "else echo 'pmm: cannot unpack .deb (need tar)' 1>&2; exit 1; fi",
+                path, path, path);
+        }
     } else if (has_suffix(bname, ".rpm") && os == OS_LINUX) {
-        /* Self-extract: rpm native, else rpm2cpio+cpio the payload into /, else alien. */
-        snprintf(cmd, sizeof(cmd),
-            "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
-            "elif command -v rpm2cpio >/dev/null 2>&1; then sudo rpm2cpio \"%s\" | (cd / && sudo cpio -idm --quiet); "
-            "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
-            "else echo 'pmm: need rpm, rpm2cpio+cpio or alien for .rpm' 1>&2; exit 1; fi",
-            path, path, path);
+        /* Self-extract in C (no rpm/rpm2cpio): pull cpio payload, gunzip, cpio it into / */
+        char cache[1024], fdata[1300];
+        pmm_cache_dir(cache, sizeof(cache));
+        snprintf(fdata, sizeof(fdata), "%s/.pmm-rpm-payload", cache);
+        if (rpm_extract_payload(path, fdata) == 0) {
+            snprintf(cmd, sizeof(cmd),
+                "if command -v gzip >/dev/null 2>&1; then gzip -dc \"%s\" | (cd / && cpio -idm --quiet 2>/dev/null); "
+                "elif command -v zstd >/dev/null 2>&1; then zstd -dc \"%s\" | (cd / && cpio -idm --quiet 2>/dev/null); "
+                "else echo 'pmm: need gzip/zstd+cpio for .rpm payload' 1>&2; exit 1; fi; rm -f \"%s\"",
+                fdata, fdata, fdata);
+        } else {
+            snprintf(cmd, sizeof(cmd),
+                "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
+                "elif command -v rpm2cpio >/dev/null 2>&1; then sudo rpm2cpio \"%s\" | (cd / && sudo cpio -idm --quiet); "
+                "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
+                "else echo 'pmm: cannot unpack .rpm (need gzip/cpio)' 1>&2; exit 1; fi",
+                path, path, path);
+        }
     } else if (has_suffix(bname, ".apk") && os == OS_LINUX) {
         /* Alpine: apk add if available, else extract */
         snprintf(cmd, sizeof(cmd),
