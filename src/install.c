@@ -248,9 +248,14 @@ static int rpm_payload_compress(const char *payload) {
     return -1;
 }
 
+#ifndef _WIN32
 /* ---------- pure-C cpio unpacker (no system cpio required) ----------
- * Reads a cpio archive from FILE* `in` (typically a popen decompression pipe)
- * and writes paths relative to `dest`. Handles newc (070701), newc-crc (070702)
+ * Linux-only: used by the .rpm branch (os == OS_LINUX). It relies on POSIX
+ * mkdir(2)/symlink/S_ISREG etc., which mingw doesn't provide. Windows never
+ * enters the rpm path, so this whole block is compiled out there.
+ *
+ * Reads a cpio archive from FILE* in (typically a popen decompression pipe)
+ * and writes paths relative to dest. Handles newc (070701), newc-crc (070702)
  * and old odc (070707). Archive names are always kept under dest ('.' and '/'
  * are stripped; '..' names are skipped). Returns 0 on success. */
 
@@ -381,6 +386,7 @@ static int pmm_cpio_unpack_cmd(const char *dest, const char *decompcmd) {
     if (rc != 0) return -1;
     return (prc == 0) ? 0 : -1;
 }
+#endif /* !_WIN32 */   /* end pure-C cpio unpacker */
 
 int install_file(const char *url, const char *name) {
     char cache[1024], path[1200];
@@ -514,6 +520,19 @@ static int install_path(const char *path, const char *name) {
             snprintf(cmd, sizeof(cmd),
                 "sudo cp -a \"%s\"/. / && rm -rf \"%s\" \"%s\"",
                 fstage, fstage, fdata);
+#ifdef _WIN32
+            /* Windows never reaches this Linux branch at runtime, but the code
+             * is still compiled. Fall back to the shell cpio path so the build
+             * doesn't fail on the missing pure-C unpacker. */
+            snprintf(cmd, sizeof(cmd),
+                "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
+                "elif command -v rpm2cpio >/dev/null 2>&1; then sudo rpm2cpio \"%s\" | (cd / && sudo cpio -idm --quiet); "
+                "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
+                "else echo 'pmm: cannot unpack .rpm (need rpm/cpio)' 1>&2; exit 1; fi",
+                path, path, path);
+            if (system(cmd) != 0) { fprintf(stderr, "pmm: rpm install failed\n"); return -1; }
+            (void)dcmd; (void)ct;
+#else
             /* unpack into stage (no sudo needed; stage is user-writable) */
             if (pmm_cpio_unpack_cmd(fstage, dcmd) != 0) {
                 fprintf(stderr, "pmm: rpm payload decompress/cpio failed (need %s)\n", dc);
@@ -525,6 +544,7 @@ static int install_path(const char *path, const char *name) {
                 return -1;
             }
             (void)ct;
+#endif
         } else {
             snprintf(cmd, sizeof(cmd),
                 "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
