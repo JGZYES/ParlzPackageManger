@@ -9,25 +9,25 @@ pmm_page_open('DOWNLOAD', '下载 PMM');
   <div class="wrap">
     <p class="section-sub">可从官方镜像站或 GitHub Release 获取。镜像地址不变。</p>
     <div class="dl-grid">
-      <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>-windows-amd64.zip" download>
+      <a class="dl-card" href="releases/<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>-windows-amd64.zip" download>
         <span class="dl-os">Windows</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>-windows-amd64.zip · 免安装</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="downloads/pmm_<?php echo PMM_VERSION; ?>_amd64.deb" download>
+      <a class="dl-card" href="releases/<?php echo PMM_VERSION; ?>/pmm_<?php echo PMM_VERSION; ?>_amd64.deb" download>
         <span class="dl-os">Linux</span><span class="dl-file">pmm_<?php echo PMM_VERSION; ?>_amd64.deb</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm" download>
+      <a class="dl-card" href="releases/<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm" download>
         <span class="dl-os">Linux</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>-linux-amd64.pdm" download>
+      <a class="dl-card" href="releases/<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>-linux-amd64.pdm" download>
         <span class="dl-os">.pdm 包</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>-linux-amd64.pdm</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>.apk" download>
+      <a class="dl-card" href="releases/<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>.apk" download>
         <span class="dl-os">Alpine</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>.apk</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="downloads/pmm-<?php echo PMM_VERSION; ?>.pkg.tar.zst" download>
+      <a class="dl-card" href="releases/<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>.pkg.tar.zst" download>
         <span class="dl-os">Arch</span><span class="dl-file">pmm-<?php echo PMM_VERSION; ?>.pkg.tar.zst</span><span class="dl-arrow">↓</span>
       </a>
-      <a class="dl-card" href="downloads/install.sh" download>
+      <a class="dl-card" href="releases/<?php echo PMM_VERSION; ?>/install.sh" download>
         <span class="dl-os">Linux/macOS</span><span class="dl-file">install.sh · 一键安装脚本</span><span class="dl-arrow">↓</span>
       </a>
       <div class="dl-card">
