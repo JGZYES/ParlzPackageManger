@@ -29,6 +29,7 @@
 #else
 #include <sys/stat.h>
 #include <unistd.h>          /* unlink/symlink (cpio unpacker) */
+#include <dirent.h>          /* opendir/readdir (empty-stage check) */
 #define PMM_MKDIR(p) mkdir((p), 0755)
 #endif
 
@@ -378,13 +379,30 @@ int pmm_cpio_unpack(const char *dest, FILE *in) {
 
 /* Run `decompcmd` (e.g. "gzip -dc file") and unpack its cpio output into dest.
  * Needs decompcmd to emit a cpio stream on stdout. Returns 0 on success. */
+/* True if `dir` exists and contains no entries (best-effort). */
+static int dir_is_empty(const char *dir) {
+    DIR *d = opendir(dir);
+    if (!d) return 0;                     /* missing dir is NOT "empty ok" */
+    int empty = 1; struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        empty = 0; break;
+    }
+    closedir(d);
+    return empty;
+}
+
 static int pmm_cpio_unpack_cmd(const char *dest, const char *decompcmd) {
     FILE *p = popen(decompcmd, "r");
     if (!p) return -1;
     int rc = pmm_cpio_unpack(dest, p);
     int prc = pclose(p);
     if (rc != 0) return -1;
-    return (prc == 0) ? 0 : -1;
+    if (prc != 0) return -1;
+    /* Never report success if the unpacked stream produced nothing — otherwise
+     * the caller would sudo-copy an empty dir and "install" nothing. */
+    if (dir_is_empty(dest)) return -1;
+    return 0;
 }
 #endif /* !_WIN32 */   /* end pure-C cpio unpacker */
 
@@ -515,6 +533,10 @@ static int install_path(const char *path, const char *name) {
                              (ct == 2) ? "xz" :
                              (ct == 3) ? "bzip2" :
                              (ct == 4) ? "lzma" : "gzip";
+            if (getenv("PMM_DEBUG"))
+                fprintf(stderr, "[pmm-debug] rpm codec=%d dc=%s fdata=%s fstage=%s\n",
+                        ct, dc, fdata, fstage);
+            (void)dc;
             char dcmd[1500];
             snprintf(dcmd, sizeof(dcmd), "%s -dc \"%s\"", dc, fdata);
             snprintf(cmd, sizeof(cmd),
@@ -533,6 +555,17 @@ static int install_path(const char *path, const char *name) {
             if (system(cmd) != 0) { fprintf(stderr, "pmm: rpm install failed\n"); return -1; }
             (void)dcmd; (void)ct;
 #else
+            /* create the (possibly multi-level) stage dir first; pmm_cpio_unpack
+             * only mkdir's the per-file parent components, not the root itself,
+             * so without this fopen("stage/usr/...") fails and data is skipped. */
+            {
+                char mkstag[1400];
+                snprintf(mkstag, sizeof(mkstag), "mkdir -p \"%s\"", fstage);
+                if (system(mkstag) != 0) {
+                    fprintf(stderr, "pmm: cannot create rpm stage dir: %s\n", fstage);
+                    return -1;
+                }
+            }
             /* unpack into stage (no sudo needed; stage is user-writable) */
             if (pmm_cpio_unpack_cmd(fstage, dcmd) != 0) {
                 fprintf(stderr, "pmm: rpm payload decompress/cpio failed (need %s)\n", dc);
