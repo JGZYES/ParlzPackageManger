@@ -28,6 +28,7 @@
 #define PMM_MKDIR(p) _mkdir(p)
 #else
 #include <sys/stat.h>
+#include <unistd.h>          /* unlink/symlink (cpio unpacker) */
 #define PMM_MKDIR(p) mkdir((p), 0755)
 #endif
 
@@ -229,6 +230,158 @@ static int rpm_extract_payload(const char *rpm, const char *out) {
     return 0;
 }
 
+/* Detect the compression codec of an RPM payload so we can pick the right
+ * decompressor without assuming gzip. Returns:
+ *   0=gzip 1=zstd 2=xz 3=bzip2 4=lzma, or -1 if unrecognized. */
+static int rpm_payload_compress(const char *payload) {
+    FILE *f = fopen(payload, "rb");
+    if (!f) return -1;
+    unsigned char m[8];
+    size_t n = fread(m, 1, 8, f);
+    fclose(f);
+    if (n >= 2 && m[0] == 0x1f && m[1] == 0x8b) return 0;                          /* gzip */
+    if (n >= 4 && m[0] == 0x28 && m[1] == 0xb5 && m[2] == 0x2f && m[3] == 0xfd) return 1; /* zstd */
+    if (n >= 6 && m[0] == 0xfd && m[1] == 0x37 && m[2] == 0x7a && m[3] == 0x58 &&
+        m[4] == 0x5a && m[5] == 0x00) return 2;                                    /* xz */
+    if (n >= 3 && m[0] == 0x42 && m[1] == 0x5a && m[2] == 0x68) return 3;          /* bzip2 */
+    if (n >= 5 && m[0] == 0x5d && m[1] == 0x00 && m[2] == 0x00 && m[3] == 0x00 && m[4] == 0x80) return 4; /* lzma */
+    return -1;
+}
+
+/* ---------- pure-C cpio unpacker (no system cpio required) ----------
+ * Reads a cpio archive from FILE* `in` (typically a popen decompression pipe)
+ * and writes paths relative to `dest`. Handles newc (070701), newc-crc (070702)
+ * and old odc (070707). Archive names are always kept under dest ('.' and '/'
+ * are stripped; '..' names are skipped). Returns 0 on success. */
+
+static unsigned c_hexn(const char *s, int n) {
+    unsigned v = 0; int i;
+    for (i = 0; i < n; i++) { char ch = s[i]; v <<= 4;
+        if (ch >= '0' && ch <= '9') v |= (unsigned)(ch - '0');
+        else if (ch >= 'a' && ch <= 'f') v |= (unsigned)(ch - 'a' + 10);
+        else if (ch >= 'A' && ch <= 'F') v |= (unsigned)(ch - 'A' + 10); }
+    return v;
+}
+
+/* Create every directory component under the (final) path. */
+static void cpio_mkdirs(char *path) {
+    for (char *p = path + 1; *p; p++) {
+        if (*p == '/') { char c = *p; *p = '\0'; mkdir(path, 0755); *p = c; }
+    }
+}
+
+/* Skip exactly n bytes from a possibly non-seekable stream. */
+static void cpio_skip(FILE *in, unsigned long n) {
+    char b[2048];
+    while (n) { unsigned long c = n > sizeof(b) ? sizeof(b) : n;
+        size_t g = fread(b, 1, c, in); if (!g) break; n -= g; }
+}
+
+int pmm_cpio_unpack(const char *dest, FILE *in) {
+    char name[8192];
+    int first = 1, is_odc = 0;
+
+    for (;;) {
+        /* read the 6-byte magic */
+        char hdr[110];
+        if (fread(hdr, 1, 6, in) != 6) break;             /* EOF -> done (no trailer) */
+        if (!(memcmp(hdr,"070701",6)==0 || memcmp(hdr,"070702",6)==0 ||
+              memcmp(hdr,"070707",6)==0)) break;          /* not a cpio magic -> done */
+        if (first) { is_odc = (memcmp(hdr,"070707",6)==0); first = 0; }
+        int hlen;
+        if (is_odc) { hlen = 76; if (fread(hdr+6,1,70,in)!=70) return -1; }
+        else        { hlen = 110; if (fread(hdr+6,1,104,in)!=104) return -1; }
+
+        unsigned mode, data_size, namesize;
+        if (is_odc) {
+            mode       = c_hexn(hdr+6,  6);
+            data_size  = c_hexn(hdr+6+30, 6);
+            namesize   = 0;   /* odc name is NUL-terminated */
+        } else {
+            /* newc (070701) / crc (070702): fields are 8-hex-char ASCII words
+             * that follow the 6-byte magic directly:
+             *   ino(6) mode(14) uid(22) gid(30) nlink(38) mtime(46) filesize(54)
+             *   devmaj(62) devmin(70) rdevmaj(78) rdevmin(86) name(94) check(102)
+             * (offsets are relative to hdr; magic occupies hdr[0..5]). */
+            mode       = c_hexn(hdr+14, 8);
+            data_size  = c_hexn(hdr+54, 8);
+            namesize   = c_hexn(hdr+94, 8);
+        }
+
+        if (is_odc) {
+            /* NUL-terminated name of unbounded length */
+            int pos = 0;
+            for (;;) {
+                int ch = fgetc(in);
+                if (ch == EOF) return -1;
+                if (pos < (int)sizeof(name)-1) name[pos++] = (char)ch;
+                if (ch == 0) break;
+            }
+            name[pos] = 0;
+        } else {
+            if (namesize == 0 || namesize >= sizeof(name)) namesize = (unsigned)sizeof(name)-1;
+            if (fread(name, 1, namesize, in) != namesize) return -1;
+            name[namesize] = 0;
+            /* align to 4 on the (header+name) boundary */
+            unsigned padh = (unsigned)(4 - (((unsigned)hlen + namesize) & 3)) & 3;
+            cpio_skip(in, padh);
+        }
+
+        if (name[0]==0 || strcmp(name,"TRAILER!!!")==0) break;   /* end of archive */
+
+        /* make safe relative path */
+        const char *rel = name;
+        while (*rel=='/') rel++;
+        while (rel[0]=='.' && rel[1]=='/') rel += 2;
+        if (strncmp(rel,"../",3)==0 || strstr(rel,"/../") || strcmp(rel,"..")==0) {
+            cpio_skip(in, data_size);                         /* refuse .. traversal */
+            if (!is_odc) cpio_skip(in, (4-(data_size&3))&3);
+            continue;
+        }
+
+        char full[8400];
+        snprintf(full, sizeof(full), "%s/%s", dest, rel);
+        unsigned ft = mode & 0170000;
+
+        if (S_ISREG(ft)) {
+            cpio_mkdirs(full);
+            FILE *of = fopen(full, "wb");
+            if (of) {
+                char b[65536]; unsigned long left = data_size;
+                while (left) { unsigned long c = left > sizeof(b) ? sizeof(b) : left;
+                    size_t g = fread(b,1,c,in); if (!g) break; fwrite(b,1,g,of); left -= g; }
+                fclose(of);
+                chmod(full, mode & 07777);
+            } else cpio_skip(in, data_size);
+        } else if (S_ISDIR(ft)) {
+            cpio_mkdirs(full); mkdir(full, mode & 07777);
+        } else if (S_ISLNK(ft)) {
+            char t[4096];
+            if (data_size < sizeof(t)-1) {
+                if (fread(t,1,data_size,in)!=data_size) return -1;
+                t[data_size]=0; cpio_mkdirs(full); unlink(full);
+                if (symlink(t, full) != 0) { /* best-effort symlink */ }
+            } else cpio_skip(in, data_size);
+        } else {
+            cpio_skip(in, data_size);                          /* device/fifo/unknown */
+        }
+
+        if (!is_odc) cpio_skip(in, (4-(data_size&3))&3);       /* data->4 pad */
+    }
+    return 0;
+}
+
+/* Run `decompcmd` (e.g. "gzip -dc file") and unpack its cpio output into dest.
+ * Needs decompcmd to emit a cpio stream on stdout. Returns 0 on success. */
+static int pmm_cpio_unpack_cmd(const char *dest, const char *decompcmd) {
+    FILE *p = popen(decompcmd, "r");
+    if (!p) return -1;
+    int rc = pmm_cpio_unpack(dest, p);
+    int prc = pclose(p);
+    if (rc != 0) return -1;
+    return (prc == 0) ? 0 : -1;
+}
+
 int install_file(const char *url, const char *name) {
     char cache[1024], path[1200];
     pmm_cache_dir(cache, sizeof(cache));
@@ -334,16 +487,44 @@ static int install_path(const char *path, const char *name) {
                 path, path, path);
         }
     } else if (has_suffix(bname, ".rpm") && os == OS_LINUX) {
-        /* Self-extract in C (no rpm/rpm2cpio): pull cpio payload, gunzip, cpio it into / */
-        char cache[1024], fdata[1300];
+        /* Self-extract in C (no rpm/rpm2cpio): pull cpio payload, decompress,
+         * unpack into a cache dir, then sudo-copy to /.  The decompressor is
+         * chosen from the payload's real codec (NOT assumed gzip -- RHEL9+ and
+         * Fedora ship zstd, some srpms use xz/lzma).  `set -e` + each stage
+         * chained with && means a failed decompress aborts and returns non-zero
+         * instead of pmm falsely reporting success. */
+        char cache[1024], fdata[1300], fstage[1300];
         pmm_cache_dir(cache, sizeof(cache));
         snprintf(fdata, sizeof(fdata), "%s/.pmm-rpm-payload", cache);
+        snprintf(fstage, sizeof(fstage), "%s/.pmm-rpm-stage", cache);
         if (rpm_extract_payload(path, fdata) == 0) {
+            /* Decompress with pmm's own pure-C cpio unpacker so no system
+             * cpio/rpm/rpm2cpio/alien is required. We only need ONE of
+             * gzip/zstd/xz/bzip2/lzma on the host (virtually every Linux has at
+             * least one). The decompressor is chosen from the payload's real
+             * codec -- gzip is NOT assumed (RHEL9+/Fedora ship zstd; some srpms
+             * use xz/lzma). */
+            int ct = rpm_payload_compress(fdata);
+            const char *dc = (ct == 1) ? "zstd" :
+                             (ct == 2) ? "xz" :
+                             (ct == 3) ? "bzip2" :
+                             (ct == 4) ? "lzma" : "gzip";
+            char dcmd[1500];
+            snprintf(dcmd, sizeof(dcmd), "%s -dc \"%s\"", dc, fdata);
             snprintf(cmd, sizeof(cmd),
-                "if command -v gzip >/dev/null 2>&1; then gzip -dc \"%s\" | (cd / && cpio -idm --quiet 2>/dev/null); "
-                "elif command -v zstd >/dev/null 2>&1; then zstd -dc \"%s\" | (cd / && cpio -idm --quiet 2>/dev/null); "
-                "else echo 'pmm: need gzip/zstd+cpio for .rpm payload' 1>&2; exit 1; fi; rm -f \"%s\"",
-                fdata, fdata, fdata);
+                "sudo cp -a \"%s\"/. / && rm -rf \"%s\" \"%s\"",
+                fstage, fstage, fdata);
+            /* unpack into stage (no sudo needed; stage is user-writable) */
+            if (pmm_cpio_unpack_cmd(fstage, dcmd) != 0) {
+                fprintf(stderr, "pmm: rpm payload decompress/cpio failed (need %s)\n", dc);
+                return -1;
+            }
+            /* copy the unpacked payload into /, then clean up */
+            if (system(cmd) != 0) {
+                fprintf(stderr, "pmm: failed to copy rpm payload into /\n");
+                return -1;
+            }
+            (void)ct;
         } else {
             snprintf(cmd, sizeof(cmd),
                 "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
