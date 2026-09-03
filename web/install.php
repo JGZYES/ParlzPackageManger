@@ -15,7 +15,7 @@ pmm_page_open('INSTALL', '安装 PMM');
     </div>
     <div class="code-box" data-pane="win" data-active="1">
       <pre><code># ZIP 免安装版（解压即用，pmm.exe 在压缩包内）
-curl -L -o pmm.zip https://pmm.parlz.com/releases/<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>-windows-amd64.zip
+curl -L -o pmm.zip https://pmm.parlz.com/releases/v<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>-windows-amd64.zip
 # 解压后把 pmm.exe 所在目录加入 PATH，然后：
 pmm -v</code></pre>
       <button class="copy-btn" data-copy="win">复制</button>
@@ -25,11 +25,11 @@ pmm -v</code></pre>
 curl -sSL https://pmm.parlz.com/install.sh | bash
 
 # 方式二：.deb 安装
-curl -L -o pmm.deb https://pmm.parlz.com/releases/<?php echo PMM_VERSION; ?>/pmm_<?php echo PMM_VERSION; ?>_amd64.deb
+curl -L -o pmm.deb https://pmm.parlz.com/releases/v<?php echo PMM_VERSION; ?>/pmm_<?php echo PMM_VERSION; ?>_amd64.deb
 sudo apt install ./pmm.deb
 
 # 方式三：.rpm 安装
-curl -L -o pmm.rpm https://pmm.parlz.com/releases/<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm
+curl -L -o pmm.rpm https://pmm.parlz.com/releases/v<?php echo PMM_VERSION; ?>/pmm-<?php echo PMM_VERSION; ?>.x86_64.rpm
 sudo rpm -Uvh pmm.rpm
 pmm -v</code></pre>
       <button class="copy-btn" data-copy="linux">复制</button>
