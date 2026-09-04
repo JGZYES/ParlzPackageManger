@@ -40,6 +40,13 @@
 #include "sha256.h"
 #include "sha1.h"
 
+#if defined(_WIN32)
+#include <direct.h>
+#define PMM_MKDIR(p) _mkdir(p)
+#else
+#define PMM_MKDIR(p) mkdir((p), 0755)
+#endif
+
 typedef struct {
     char *registry_url;   /* package registry base URL */
     char *mirror_name;    /* active mirror name ("" = none) */
@@ -395,6 +402,62 @@ static int cmd_upgrade(int argc, char **argv) {
     return 0;
 }
 
+/* Write `body` to ~/.pmm/cache/registry/<rel>. Returns 0 on success. */
+static int save_registry_cache(const char *rel, const char *body) {
+    char cache[1024];
+    pmm_cache_dir(cache, sizeof(cache));
+    char dir[1200];
+    snprintf(dir, sizeof(dir), "%s/registry", cache);
+    /* mkdir -p via a small loop */
+    char tmp[1200]; snprintf(tmp, sizeof(tmp), "%s", dir);
+    for (char *p = tmp + 1; *p; p++) if (*p == '/') { char c = *p; *p = '\0'; PMM_MKDIR(tmp); *p = c; }
+    PMM_MKDIR(dir);
+    char path[1400];
+    snprintf(path, sizeof(path), "%s/%s", dir, rel);
+    FILE *f = fopen(path, "wb");
+    if (!f) return -1;
+    fwrite(body, 1, strlen(body), f);
+    fclose(f);
+    return 0;
+}
+
+/* pmm update — apt-style: refresh the local registry index. Downloads
+ * packages.json plus every {pkg}.json from the configured mirrors into
+ * ~/.pmm/cache/registry/ so search/info/upgrade can consult them. */
+static int cmd_update(void) {
+    int status = 0;
+    char *body = registry_fetch("packages.json", &status);
+    if (!body) { pmm_error("no registry index (packages.json) available\n"); return 1; }
+    JsonValue *root = json_parse(body);
+    if (!root || root->type != JSON_ARRAY) {
+        pmm_error("bad registry index\n"); if (root) json_free(root); free(body); return 1;
+    }
+    int total = root->count, ok = 0;
+    if (total == 0) { pmm_info("registry index is empty.\n"); json_free(root); free(body); return 0; }
+    save_registry_cache("packages.json", body);
+    json_free(root);
+
+    for (int i = 0; i < total; i++) {
+        /* re-parse to get each name */
+        JsonValue *r2 = json_parse(body);
+        if (!r2) break;
+        JsonValue *v = json_at(r2, i);
+        const char *name = (v && v->type == JSON_STRING) ? v->string : NULL;
+        if (!name) { json_free(r2); continue; }
+        char rel[512]; snprintf(rel, sizeof(rel), "%s.json", name);
+        int st = 0;
+        char *pkgbody = registry_fetch(rel, &st);
+        if (pkgbody && st != 404 && st != 403 && st != 503) {
+            if (save_registry_cache(rel, pkgbody) == 0) ok++;
+        }
+        free(pkgbody);
+        json_free(r2);
+    }
+    free(body);
+    pmm_success("updated registry index: %d/%d packages cached.\n", ok, total);
+    return 0;
+}
+
 /* pmm verify <file> — print sha256 (and sha1) of a downloaded package file. */
 static int cmd_verify(int argc, char **argv) {
     if (argc < 1) { pmm_error("usage: pmm verify <file>\n"); return 1; }
@@ -623,7 +686,8 @@ static void print_help(void) {
     printf("  pmm pack <dir> [out.pdm]              pack a folder into a .pdm\n");
     printf("  pmm list                              list installed packages\n");
     printf("  pmm remove <pkg>                      uninstall a package\n");
-    printf("  pmm self-update                       update pmm (auto os/arch)\n");
+    printf("  pmm self-update                       update the pmm tool itself\n");
+    printf("  pmm update                            refresh the registry index (apt-style)\n");
     printf("  pmm upgrade [--yes]                   upgrade all installed packages\n");
     printf("  pmm install --git <repo-url.git>      any git host, API auto-detected\n");
     printf("  pmm install --github <owner/repo>     GitHub latest release\n");
@@ -731,7 +795,7 @@ int main(int argc, char **argv) {
         return pdm_remove(argv[2]) == 0 ? 0 : 1;
     }
     /* pmm self-update: install the latest 'pmm' tool package (auto os+arch) */
-    if (strcmp(argv[1], "self-update") == 0 || strcmp(argv[1], "update") == 0) {
+    if (strcmp(argv[1], "self-update") == 0) {
         PmmConfig cfg; MirrorSel mirror;
         load_config(&cfg);
         load_mirror(&cfg, &mirror);
@@ -745,6 +809,9 @@ int main(int argc, char **argv) {
                    pmm_config_dir((char[1024]){0}, 1024));
         return rc == 0 ? 0 : 1;
     }
+
+    if (strcmp(argv[1], "update") == 0)
+        return cmd_update();
 
     if (strcmp(argv[1], "upgrade") == 0)
         return cmd_upgrade(argc - 2, argv + 2);
