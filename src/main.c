@@ -366,12 +366,16 @@ static int cmd_upgrade(int argc, char **argv) {
         } else {
             best = json_str(root, "version");
         }
+        /* Copy best into a stable buffer BEFORE freeing the JSON tree: best
+         * currently points into json_str()'s internal storage. */
+        char bestbuf[128];
+        if (best) snprintf(bestbuf, sizeof(bestbuf), "%s", best);
         json_free(root);
         if (!best) continue;
 
-        if (cmp_version(best, curver) <= 0) { pmm_info("%s %s is up to date (latest %s)\n", pkg, curver, best); continue; }
+        if (cmp_version(bestbuf, curver) <= 0) { pmm_info("%s %s is up to date (latest %s)\n", pkg, curver, bestbuf); continue; }
 
-        pmm_info("%s: %s -> %s\n", pkg, curver, best);
+        pmm_info("%s: %s -> %s\n", pkg, curver, bestbuf);
         if (!yes) {
             printf("  upgrade? [y/N] ");
             fflush(stdout);
