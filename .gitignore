@@ -17,6 +17,9 @@
 .vscode/
 .idea/
 
+# tool workspace cache
+.zcode/
+
 # The mirror registry is committed so the mirror is complete and downloadable.
 # Un-ignore the .pdm files there (*.pdm elsewhere stays ignored). Uses ** so it
 # still matches after the mirror moved to web/mirror/.

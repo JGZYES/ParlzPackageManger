@@ -13,6 +13,7 @@
  */
 #include "install.h"
 #include "pmm.h"
+#include "out.h"
 #include "http.h"
 #include "json.h"
 #include "sha256.h"
@@ -116,16 +117,16 @@ static int verify_checksums(const char *url, const char *path, const char *name)
         extract_hex(text, name, expect, sizeof(expect));
         free(text);
         if (!expect[0]) {
-            printf("pmm: warning: could not parse %s checksum file\n", algos[i].ext);
+            pmm_warn("warning: could not parse %s checksum file\n", algos[i].ext);
             continue;
         }
         /* case-insensitive compare */
         if (strcasecmp(expect, hex) != 0) {
-            fprintf(stderr, "pmm: CHECKSUM MISMATCH (%s)!\n  expected: %s\n  actual:   %s\n",
+            pmm_error("CHECKSUM MISMATCH (%s)!\n  expected: %s\n  actual:   %s\n",
                     algos[i].ext, expect, hex);
             return -1;
         }
-        printf("pmm: %s checksum OK: %s\n", algos[i].algo == 256 ? "sha256" : "sha1", hex);
+        pmm_success("%s checksum OK: %s\n", algos[i].algo == 256 ? "sha256" : "sha1", hex);
     }
     return 0;
 }
@@ -418,29 +419,29 @@ int install_file(const char *url, const char *name) {
     char **cands = mirrors_download_candidates(ml, url, &ncand);
     int ok = -1;
     for (int i = 0; i < ncand; i++) {
-        printf("pmm: downloading %s%s\n", cands[i],
+        pmm_info("downloading %s%s\n", cands[i],
                i < ncand - 1 ? " (mirror)" : "");
         if (http_download(cands[i], path) == 0) { ok = 0; break; }
-        fprintf(stderr, "pmm: download failed, trying next source...\n");
+        pmm_warn("download failed, trying next source...\n");
         remove(path);
     }
     for (int i = 0; i < ncand; i++) free(cands[i]);
     free(cands);
     mirrors_free(ml);
     if (ok != 0) {
-        fprintf(stderr, "pmm: all download sources failed: %s\n", url);
+        pmm_error("all download sources failed: %s\n", url);
         return -1;
     }
-    printf("pmm: downloaded %s\n", path);
+    pmm_success("downloaded %s\n", path);
 
     /* integrity: sha256 + sha1, verified against sidecar checksums when present */
     char hex[128];
     if (pmm_sha256_file(path, hex) == 0)
-        printf("pmm: sha256: %s\n", hex);
+        pmm_info("sha256: %s\n", hex);
     if (pmm_sha1_file(path, hex) == 0)
-        printf("pmm: sha1:   %s\n", hex);
+        pmm_info("sha1:   %s\n", hex);
     if (verify_checksums(url, path, name) != 0) {
-        fprintf(stderr, "pmm: refusing to install: checksum verification failed\n");
+        pmm_error("refusing to install: checksum verification failed\n");
         remove(path);
         return -1;
     }
@@ -460,9 +461,9 @@ static int install_path(const char *path, const char *name) {
     /* A bare binary (no extension) must really be a native executable for this
      * OS; otherwise refuse so the caller can fall back to the os-named asset. */
     if (strchr(bname, '.') == NULL) {
-        printf("pmm: verifying %s is a native %s binary...\n", bname, pmm_os_name(os));
+        pmm_info("verifying %s is a native %s binary...\n", bname, pmm_os_name(os));
         if (!native_binary_ok(path, os)) {
-            fprintf(stderr, "pmm: %s is not a usable %s binary; will fall back\n",
+            pmm_warn("%s is not a usable %s binary; will fall back\n",
                     bname, pmm_os_name(os));
             return -1;
         }
@@ -478,12 +479,12 @@ static int install_path(const char *path, const char *name) {
     /* .pdm packages are installed through the deb-like manager */
     if (has_suffix(bname, ".pdm") || has_suffix(bname, ".PDM")) {
         extern int pdm_install_file(const char *path);
-        printf("pmm: installing .pdm %s ...\n", bname);
+        pmm_info("installing .pdm %s ...\n", bname);
         if (pdm_install_file(path) != 0) {
-            fprintf(stderr, "pmm: .pdm install failed: %s\n", bname);
+            pmm_error(".pdm install failed: %s\n", bname);
             return -1;
         }
-        printf("pmm: installed .pdm %s\n", bname);
+        pmm_success("installed .pdm %s\n", bname);
         pmm_add_to_path();
         return 0;
     }
@@ -507,7 +508,7 @@ static int install_path(const char *path, const char *name) {
                 "elif command -v ar >/dev/null 2>&1; then T=$(mktemp -d); "
                 "(cd \"$T\" && ar p \"%s\" data.tar.gz | tar -xzf -); sudo cp -a \"$T\"/. /; rm -rf \"$T\"; "
                 "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
-                "else echo 'pmm: cannot unpack .deb (need tar)' 1>&2; exit 1; fi",
+                "else echo -e \"\\033[31m[PMM]:[ERROR]cannot unpack .deb (need tar)\\033[0m\" 1>&2; exit 1; fi",
                 path, path, path);
         }
     } else if (has_suffix(bname, ".rpm") && os == OS_LINUX) {
@@ -550,9 +551,9 @@ static int install_path(const char *path, const char *name) {
                 "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
                 "elif command -v rpm2cpio >/dev/null 2>&1; then sudo rpm2cpio \"%s\" | (cd / && sudo cpio -idm --quiet); "
                 "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
-                "else echo 'pmm: cannot unpack .rpm (need rpm/cpio)' 1>&2; exit 1; fi",
+                "else echo -e \"\\033[31m[PMM]:[ERROR]cannot unpack .rpm (need rpm/cpio)\\033[0m\" 1>&2; exit 1; fi",
                 path, path, path);
-            if (system(cmd) != 0) { fprintf(stderr, "pmm: rpm install failed\n"); return -1; }
+            if (system(cmd) != 0) { pmm_error("rpm install failed\n"); return -1; }
             (void)dcmd; (void)ct;
 #else
             /* create the (possibly multi-level) stage dir first; pmm_cpio_unpack
@@ -562,18 +563,18 @@ static int install_path(const char *path, const char *name) {
                 char mkstag[1400];
                 snprintf(mkstag, sizeof(mkstag), "mkdir -p \"%s\"", fstage);
                 if (system(mkstag) != 0) {
-                    fprintf(stderr, "pmm: cannot create rpm stage dir: %s\n", fstage);
+                    pmm_error("cannot create rpm stage dir: %s\n", fstage);
                     return -1;
                 }
             }
             /* unpack into stage (no sudo needed; stage is user-writable) */
             if (pmm_cpio_unpack_cmd(fstage, dcmd) != 0) {
-                fprintf(stderr, "pmm: rpm payload decompress/cpio failed (need %s)\n", dc);
+                pmm_error("rpm payload decompress/cpio failed (need %s)\n", dc);
                 return -1;
             }
             /* copy the unpacked payload into /, then clean up */
             if (system(cmd) != 0) {
-                fprintf(stderr, "pmm: failed to copy rpm payload into /\n");
+                pmm_error("failed to copy rpm payload into /\n");
                 return -1;
             }
             (void)ct;
@@ -583,7 +584,7 @@ static int install_path(const char *path, const char *name) {
                 "if command -v rpm >/dev/null 2>&1; then sudo rpm -Uvh \"%s\"; "
                 "elif command -v rpm2cpio >/dev/null 2>&1; then sudo rpm2cpio \"%s\" | (cd / && sudo cpio -idm --quiet); "
                 "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
-                "else echo 'pmm: cannot unpack .rpm (need gzip/cpio)' 1>&2; exit 1; fi",
+                "else echo -e \"\\033[31m[PMM]:[ERROR]cannot unpack .rpm (need gzip/cpio)\\033[0m\" 1>&2; exit 1; fi",
                 path, path, path);
         }
     } else if (has_suffix(bname, ".apk") && os == OS_LINUX) {
@@ -635,12 +636,12 @@ static int install_path(const char *path, const char *name) {
             snprintf(cmd, sizeof(cmd), "cp -f \"%s\" \"%s/\" 2>/dev/null || true", path, dest);
     }
 
-    printf("pmm: installing %s ...\n", bname);
+    pmm_info("installing %s ...\n", bname);
     if (run_cmd_quiet(cmd) != 0) {
-        fprintf(stderr, "pmm: install command failed: %s\n", cmd);
+        pmm_error("install command failed: %s\n", cmd);
         return -1;
     }
-    printf("pmm: installed %s\n", bname);
+    pmm_success("installed %s\n", bname);
     pmm_add_to_path();
     return 0;
 }
@@ -648,11 +649,11 @@ static int install_path(const char *path, const char *name) {
 /* Install a local file by its extension — e.g. `pmm install -dpkg foo.deb`
  * (Linux) or `pmm install -msi foo.msi` (Windows). Returns 0 on success. */
 int install_local_file(const char *path) {
-    if (!path || !*path) { fprintf(stderr, "pmm: empty file path\n"); return -1; }
+    if (!path || !*path) { pmm_error("empty file path\n"); return -1; }
     FILE *chk = fopen(path, "rb");
-    if (!chk) { fprintf(stderr, "pmm: cannot open file: %s\n", path); return -1; }
+    if (!chk) { pmm_error("cannot open file: %s\n", path); return -1; }
     fclose(chk);
-    printf("pmm: installing local file %s\n", path);
+    pmm_info("installing local file %s\n", path);
     return install_path(path, path);
 }
 
@@ -781,8 +782,8 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         if (ml->items[i].registry && *ml->items[i].registry) has_reg = 1;
 
     if (!has_reg) {
-        fprintf(stderr,
-                "pmm: no registry mirror configured. Add to ~/.pmm/mirror.ini:\n"
+        pmm_error(
+                "no registry mirror configured. Add to ~/.pmm/mirror.ini:\n"
                 "     [name]\n     registry = https://host/pmm\n"
                 "  (apt-style: mirrors are tried by priority; the first with the\n"
                 "   package wins, else plain 'pmm install --git owner/repo')\n");
@@ -804,7 +805,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         if (!seen[i] && ml->items[i].registry && *ml->items[i].registry)
             bases[nb++] = ml->items[i].registry;
 
-    if (nb == 0) { fprintf(stderr, "pmm: no registry mirrors\n"); mirrors_free(ml); return -1; }
+    if (nb == 0) { pmm_error("no registry mirrors\n"); mirrors_free(ml); return -1; }
 
     /* fetch the <pkg>.json latest pointer (carries the variants list) */
     char url[2048];
@@ -813,7 +814,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
     char *used_base = NULL;
     for (int i = 0; i < nb; i++) {
         snprintf(url, sizeof(url), "%s/%s.json", bases[i], name);
-        printf("pmm: looking up %s in mirror %s\n", name, bases[i]);
+        pmm_info("looking up %s in mirror %s\n", name, bases[i]);
         body = http_get(url, &status);
         if (getenv("PMM_DEBUG")) fprintf(stderr, "[reg] %s -> body=%s status=%d\n",
                                          bases[i], body ? "set" : "NULL", status);
@@ -824,14 +825,14 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         free(body); body = NULL;
     }
     if (!body) {
-        fprintf(stderr, "pmm: package '%s' not found in any registry mirror\n", name);
+        pmm_error("package '%s' not found in any registry mirror\n", name);
         mirrors_free(ml);
         return -1;
     }
     JsonValue *meta = json_parse(body);
     free(body);
     if (!meta || meta->type != JSON_OBJECT) {
-        fprintf(stderr, "pmm: bad registry entry for '%s' (%s)\n", name, used_base);
+        pmm_error("bad registry entry for '%s' (%s)\n", name, used_base);
         json_free(meta);
         mirrors_free(ml);
         return -1;
@@ -869,19 +870,19 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
                 const char *s = json_str(v, "sha256"); free(want_sha); want_sha = s ? strdup(s) : NULL; }
         }
         if (!chosen) {
-            fprintf(stderr, "pmm: no version of '%s' for os=%s arch=%s%s%s\n", name, osn, arch,
+            pmm_error("no version of '%s' for os=%s arch=%s%s%s\n", name, osn, arch,
                     (spec && *spec) ? " satisfying '" : "", (spec && *spec) ? spec : "");
             json_free(meta); mirrors_free(ml); return -1;
         }
-        printf("pmm: selected %s@%s (os=%s arch=%s)\n", name, chosen, osn, arch);
+        pmm_info("selected %s@%s (os=%s arch=%s)\n", name, chosen, osn, arch);
     } else {
         /* legacy single-platform entry */
         dl = json_str(meta, "url"); file = json_str(meta, "file");
         const char *s = json_str(meta, "sha256"); want_sha = s ? strdup(s) : NULL;
-        printf("pmm: selected %s@%s (os=%s)\n", name, json_str(meta, "version"), osn);
+        pmm_info("selected %s@%s (os=%s)\n", name, json_str(meta, "version"), osn);
     }
     if (!dl) {
-        fprintf(stderr, "pmm: registry entry for '%s' has no url\n", name);
+        pmm_error("registry entry for '%s' has no url\n", name);
         json_free(meta); mirrors_free(ml); return -1;
     }
     char *url_cp = strdup(dl);
@@ -897,12 +898,12 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         snprintf(path, sizeof(path), "%s/%s", cache, file_cp);
         if (pmm_sha256_file(path, hex) == 0) {
             if (strcasecmp(want_sha, hex) != 0) {
-                fprintf(stderr, "pmm: CHECKSUM MISMATCH (%s registry entry)!\n"
+                pmm_error("CHECKSUM MISMATCH (%s registry entry)!\n"
                                 "  expected: %s\n  actual:   %s\n", name, want_sha, hex);
                 remove(path);
                 rc = -1;
             } else {
-                printf("pmm: registry sha256 OK: %s\n", hex);
+                pmm_success("registry sha256 OK: %s\n", hex);
             }
         }
     }
@@ -916,6 +917,6 @@ static int install_dep_spec(const char *depstr) {
     for (int i = 0; i < dep_seen_n; i++)
         if (strcmp(dep_seen[i], name) == 0) return 0;   /* cycle / duplicate */
     if (dep_seen_n < 128) dep_seen[dep_seen_n++] = strdup(name);
-    printf("pmm: resolving dependency %s%s%s\n", name, spec[0] ? " " : "", spec);
+    pmm_info("resolving dependency %s%s%s\n", name, spec[0] ? " " : "", spec);
     return install_from_registry(name, spec[0] ? spec : NULL, NULL);
 }

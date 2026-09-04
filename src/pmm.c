@@ -1,5 +1,6 @@
 /* pmm.c - platform & config-dir helpers */
 #include "pmm.h"
+#include "out.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -129,7 +130,7 @@ void pmm_set_install_drive(const char *letter) {
     mkdir_p(dir);
     FILE *f = fopen(state, "w");
     if (f) { fprintf(f, "%c", c); fclose(f); }
-    printf("pmm: install drive set to %c:\n", c);
+    pmm_success("install drive set to %c:\n", c);
 }
 
 void pmm_set_install_path(const char *path) {
@@ -139,7 +140,7 @@ void pmm_set_install_path(const char *path) {
     size_t l = strlen(g_base_path);
     while (l > 1 && (g_base_path[l-1] == '/' || g_base_path[l-1] == '\\')) g_base_path[--l] = '\0';
     mkdir_p(g_base_path);
-    printf("pmm: install path set to %s\n", g_base_path);
+    pmm_success("install path set to %s\n", g_base_path);
 }
 int pmm_flat_mode(void) { return g_base_path[0] ? 1 : 0; }
 
@@ -407,9 +408,9 @@ void pmm_add_to_path(void) {
         if (room <= 0) break;                 /* no space left: stop */
         snprintf(next + l, room + 1, "%s", list[i]);
         added++;
-        printf("pmm: adding to PATH: %s\n", list[i]);
+        pmm_info("adding to PATH: %s\n", list[i]);
     }
-    if (!added) { printf("pmm: PATH already contains PMM dirs\n"); return; }
+    if (!added) { pmm_info("PATH already contains PMM dirs\n"); return; }
 
 #ifdef _WIN32
     {
@@ -417,7 +418,7 @@ void pmm_add_to_path(void) {
         /* drive letters and ';' are fine for setx; quote the value */
         snprintf(cmd, sizeof(cmd), "setx Path \"%s\" >nul 2>&1", next);
         system(cmd);
-        printf("pmm: PATH updated for new shells (reopen a terminal or run: setx)  (user-level)\n");
+        pmm_success("PATH updated for new shells (reopen a terminal or run: setx)  (user-level)\n");
     }
 #else
     {
@@ -432,7 +433,7 @@ void pmm_add_to_path(void) {
             fclose(f);
         }
         (void)she;
-        printf("pmm: updated %s (reload your shell)\n", rcp);
+        pmm_success("updated %s (reload your shell)\n", rcp);
     }
 #endif
 }
@@ -513,9 +514,9 @@ int pmm_reg_uninstall(const char *pkg, const char *ver, const char *pub,
     int rc = system(cmd);
     remove(ps1);
     if (rc != 0)
-        fprintf(stderr, "pmm: warning: could not register '%s' in Installed Apps\n", pkg);
+        pmm_warn("warning: could not register '%s' in Installed Apps\n", pkg);
     else
-        printf("pmm: registered '%s' %s in Installed Apps (uninstall via pmm remove %s)\n",
+        pmm_success("registered '%s' %s in Installed Apps (uninstall via pmm remove %s)\n",
                pkg, ver ? ver : "", pkg);
     return rc == 0 ? 0 : -1;
 #endif
@@ -531,6 +532,6 @@ void pmm_reg_uninstall_clear(const char *pkg) {
              "%%SystemRoot%%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -Command \"Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\%s' -Recurse -Force -ErrorAction SilentlyContinue\" 2>nul",
              pkg);
     system(cmd);
-    printf("pmm: removed '%s' from Installed Apps\n", pkg);
+    pmm_success("removed '%s' from Installed Apps\n", pkg);
 #endif
 }
