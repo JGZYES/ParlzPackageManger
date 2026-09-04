@@ -3,7 +3,7 @@ CFLAGS  ?= -O2 -Wall -static -Wextra -std=c11
 PREFIX  ?= /usr/local
 
 SRC = src/main.c src/json.c src/ini.c src/pmm.c src/http.c src/repo.c \
-      src/install.c src/sha256.c src/sha1.c src/mirrors.c src/pdm.c src/out.c
+      src/install.c src/sha256.c src/sha1.c src/mirrors.c src/pdm.c src/out.c src/i18n.c
 
 all: pmm
 

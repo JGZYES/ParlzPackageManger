@@ -30,6 +30,7 @@
 
 #include "pmm.h"
 #include "out.h"
+#include "i18n.h"
 #include "json.h"
 #include "ini.h"
 #include "http.h"
@@ -50,6 +51,7 @@
 typedef struct {
     char *registry_url;   /* package registry base URL */
     char *mirror_name;    /* active mirror name ("" = none) */
+    char *language;       /* active locale / language pack ("" = default) */
 } PmmConfig;
 
 typedef struct {
@@ -74,6 +76,8 @@ static void load_config(PmmConfig *cfg) {
             if (u) cfg->registry_url = xstrdup(u);
             const char *m = json_str(root, "mirror");
             if (m) cfg->mirror_name = xstrdup(m);
+            const char *l = json_str(root, "language");
+            if (l) cfg->language = xstrdup(l);
             json_free(root);
         }
     } else {
@@ -85,6 +89,9 @@ static void load_config(PmmConfig *cfg) {
             const char *m = ini_get(ini, NULL, "mirror");
             if (!m) m = ini_get(ini, "pmm", "mirror");
             if (m) cfg->mirror_name = xstrdup(m);
+            const char *l = ini_get(ini, NULL, "language");
+            if (!l) l = ini_get(ini, "pmm", "language");
+            if (l) cfg->language = xstrdup(l);
             ini_free(ini);
         }
     }
@@ -736,7 +743,7 @@ static int cmd_mirror(int argc, char **argv) {
 }
 
 static void print_help(void) {
-    printf("ParlzPackageManger (PMM) v%s\n\n", PMM_VERSION);
+    printf("PMM %s (%s)\n\n", PMM_VERSION, pmm_detect_arch());
     printf("usage:\n");
     printf("  pmm install <pkg>                     install from registry mirrors (apt-style)\n");
     printf("  pmm install <file.pdm>                install a local .pdm package\n");
@@ -772,6 +779,95 @@ static void print_help(void) {
     printf("config: <base>/pmm.json | pmm.ini | pmm.conf  (base = <drive>:\\\\.pmm 或 ~/.pmm)\n");
     printf("mirrors: <base>/mirror.ini | mirror.conf\n");
     printf("asset mapping: windows=exe/msi/zip/7z  linux=deb/rpm/appimage/tar.*  macos=dmg/pkg\n");
+}
+
+/* Make every directory component of `path` using PMM_MKDIR (mkdir -p). */
+static void mkdir_p_local(char *path) {
+    for (char *p = path + 1; *p; p++)
+        if (*p == '/' || *p == '\\') { char c = *p; *p = '\0'; PMM_MKDIR(path); *p = c; }
+    PMM_MKDIR(path);
+}
+
+/* pmm setting lang ... */
+static int cmd_setting(int argc, char **argv) {
+    if (argc < 1 || strcmp(argv[0], "lang") != 0) {
+        pmm_error("usage: pmm setting lang -l | <locale>\n");
+        return 1;
+    }
+    char dir[1024];
+    pmm_config_dir(dir, sizeof(dir));
+    char langdir[1200];
+    snprintf(langdir, sizeof(langdir), "%s/lang", dir);
+
+    /* -l : list installed language packs */
+    if (argc == 2 && strcmp(argv[1], "-l") == 0) {
+        printf("language packs in %s:\n", langdir);
+#ifdef _WIN32
+        char pat[1300]; snprintf(pat, sizeof(pat), "%s\\*.pjson", langdir);
+        WIN32_FIND_DATAA fd; HANDLE h = FindFirstFileA(pat, &fd);
+        if (h != INVALID_HANDLE_VALUE) {
+            do { printf("  %s\n", fd.cFileName); } while (FindNextFileA(h, &fd));
+            FindClose(h);
+        }
+#else
+        DIR *dd = opendir(langdir);
+        if (dd) {
+            struct dirent *ee;
+            while ((ee = readdir(dd)) != NULL) {
+                size_t ln = strlen(ee->d_name);
+                if (ln > 6 && strcmp(ee->d_name + ln - 6, ".pjson") == 0) printf("  %s\n", ee->d_name);
+            }
+            closedir(dd);
+        }
+#endif
+        return 0;
+    }
+
+    /* install / activate a specific locale: requires a value */
+    if (argc < 2) { pmm_error("usage: pmm setting lang <locale>\n"); return 1; }
+    const char *loc = argv[1];
+    if (strchr(loc, '/') || strchr(loc, '\\') || strstr(loc, "..")) { pmm_error("invalid locale: %s\n", loc); return 1; }
+
+    /* pick a registry base for the language pack */
+    MirrorList *ml = mirrors_load();
+    const char *base = NULL;
+    for (int i = 0; i < ml->count; i++)
+        if (ml->items[i].registry && *ml->items[i].registry) { base = ml->items[i].registry; break; }
+    if (!base) { pmm_error("no registry mirror configured\n"); mirrors_free(ml); return 1; }
+
+    char url[2048];
+    snprintf(url, sizeof(url), "%s/lang/%s.pjson", base, loc);
+    mkdir_p_local(langdir);
+    char out[1400];
+    snprintf(out, sizeof(out), "%s/%s.pjson", langdir, loc);
+    if (http_download(url, out) != 0) {
+        pmm_error("failed to download language pack %s\n", loc);
+        mirrors_free(ml); return 1;
+    }
+    mirrors_free(ml);
+
+    /* persist language=<loc> in pmm.conf (always-writable text) */
+    char cfgpath[1200];
+    snprintf(cfgpath, sizeof(cfgpath), "%s/pmm.conf", dir);
+    char lines[256][1024]; int nn = 0;
+    FILE *rf = fopen(cfgpath, "r");
+    if (rf) {
+        char line[1024];
+        while (fgets(line, sizeof(line), rf) && nn < 256) {
+            if (strncmp(line, "language", 8) != 0) strncpy(lines[nn++], line, sizeof(lines[0]) - 1);
+        }
+        fclose(rf);
+    }
+    FILE *wf = fopen(cfgpath, "w");
+    if (!wf) { pmm_error("cannot write %s\n", cfgpath); return 1; }
+    for (int i = 0; i < nn; i++) fputs(lines[i], wf);
+    fprintf(wf, "language = %s\n", loc);
+    fclose(wf);
+
+    pmm_lang_set_locale(loc);
+    pmm_lang_load(out);
+    pmm_success("language set to '%s'\n", loc);
+    return 0;
 }
 
 /* Parse "-p<drive>" / "-p <drive>" flags (e.g. -pd -> D:\.pmm) anywhere in
@@ -862,15 +958,24 @@ int main(int argc, char **argv) {
     argc = consume_global_flags(argc, argv);
     if (argc < 2) { print_help(); return 0; }
 
+    /* initialise i18n: use configured language (if any), then load its pack */
+    {
+        PmmConfig cfg; load_config(&cfg);
+        if (cfg.language && *cfg.language) pmm_lang_set_locale(cfg.language);
+        free(cfg.registry_url); free(cfg.mirror_name); free(cfg.language);
+        pmm_lang_load_active();
+    }
+
     if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
         print_help(); return 0;
     }
     if (strcmp(argv[1], "version") == 0 || strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0) {
-        pmm_info("pmm %s (%s) [%s]\n", PMM_VERSION, pmm_os_name(pmm_detect_os()), pmm_detect_arch());
+        pmm_info("PMM %s (%s)\n", PMM_VERSION, pmm_detect_arch());
         return 0;
     }
     if (strcmp(argv[1], "list") == 0) { pdm_list_installed(); return 0; }
     if (strcmp(argv[1], "mirror") == 0) return cmd_mirror(argc - 2, argv + 2);
+    if (strcmp(argv[1], "setting") == 0) return cmd_setting(argc - 2, argv + 2);
     /* pmm remove <pkg>  (also used by the Windows "Uninstall" registration) */
     if (strcmp(argv[1], "remove") == 0) {
         if (argc < 3) { pmm_error("usage: pmm remove <pkg>\n"); return 1; }

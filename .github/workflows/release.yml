@@ -45,7 +45,7 @@ jobs:
           VER=${VER#v}
           ${{ matrix.cc }} -O2 -Wall -static -std=c11 -D_FORTIFY_SOURCE=0 -U_FORTIFY_SOURCE -DPMM_VERSION=\"$VER\" -o out/pmm${{ matrix.ext }} \
             src/main.c src/json.c src/ini.c src/pmm.c src/http.c src/repo.c src/install.c \
-            src/sha256.c src/sha1.c src/mirrors.c src/pdm.c src/out.c
+            src/sha256.c src/sha1.c src/mirrors.c src/pdm.c src/out.c src/i18n.c
 
       - name: Package installers
         run: |
