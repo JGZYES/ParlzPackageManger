@@ -422,7 +422,7 @@ int pdm_install_file(const char *pdmfile) {
             char mp[1200];
             snprintf(mp, sizeof(mp), "installed/.stage/%s", fname);
             if (pmm_sha256_file(mp, hex) != 0 || strcasecmp(hex, expect) != 0) {
-                pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", fname, pdmfile));
+                pmm_error("%s", pmm_tr_fmt("msg.err.checksum-mismatch-file", fname, pdmfile));
                 fclose(sf); chdir_restore(); remove(tmpname); return -1;
             }
         }

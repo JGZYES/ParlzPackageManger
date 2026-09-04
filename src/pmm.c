@@ -532,6 +532,6 @@ void pmm_reg_uninstall_clear(const char *pkg) {
              "%%SystemRoot%%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -Command \"Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\%s' -Recurse -Force -ErrorAction SilentlyContinue\" 2>nul",
              pkg);
     system(cmd);
-    pmm_success("%s", pmm_tr_fmt("msg.removed", pkg));
+    pmm_success("%s", pmm_tr_fmt("msg.unregistered", pkg));
 #endif
 }

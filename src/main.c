@@ -598,7 +598,7 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
                 "(tried gitea/gitlab/github shapes)\n", repo);
     if (!asset) {
         if (host != HOST_AUTO)
-            pmm_error("%s", pmm_tr_fmt("msg.no-suitable-asset", pmm_os_name(os)), repo);
+            pmm_error("%s", pmm_tr_fmt("msg.err.no-suitable-asset", pmm_os_name(os), repo));
         repo_close(ctx);
         return 1;
     }

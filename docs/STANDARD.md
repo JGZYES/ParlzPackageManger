@@ -112,12 +112,12 @@ web/mirror/lang/<locale>.pjson
 
 ```
 {
-  "help.banner": "PMM {ver} ({arch})",
+  "help.banner": "PMM %s (%s)",
   "cmd.list": "list",
   "cmd.info": "info",
   "desc.list": "根据名称列出软件包",
-  "msg.installed": "已安装 {name}",
-  "msg.err.notfound": "未找到软件包 {name}"
+  "msg.installed": "已安装 %s",
+  "msg.err.notfound": "未找到软件包 %s"
 }
 ```
 
@@ -134,7 +134,7 @@ web/mirror/lang/<locale>.pjson
 | `opt.` | 选项说明 |
 | `cfg.` | 配置项名 |
 
-占位符用 `{name}`、`{ver}`、`{arch}` 等（花括号 + 小写字段名），渲染时替换。
+占位符用 C `printf` 风格的 `%s` / `%d`（与源码调用 `pmm_tr_fmt("key", args...)` 的参数一一对应），渲染时由 `pmm_tr_fmt` 替换。
 键**不得**含空格 / 大写，语义词用小写连字符（如 `msg.err.not-found`）。
 
 ## 6. 提交 / PR 约定

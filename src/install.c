@@ -437,9 +437,9 @@ int install_file(const char *url, const char *name) {
     /* integrity: sha256 + sha1, verified against sidecar checksums when present */
     char hex[128];
     if (pmm_sha256_file(path, hex) == 0)
-        pmm_info("%s", pmm_tr_fmt("msg.sha256", hex));
+        pmm_info("%s", pmm_tr_fmt("msg.hash-sha256", hex));
     if (pmm_sha1_file(path, hex) == 0)
-        pmm_info("%s", pmm_tr_fmt("msg.sha1", hex));
+        pmm_info("%s", pmm_tr_fmt("msg.hash-sha1", hex));
     if (verify_checksums(url, path, name) != 0) {
         pmm_error(pmm_tr("msg.err.checksum-refuse"));
         remove(path);
@@ -831,7 +831,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
     JsonValue *meta = json_parse(body);
     free(body);
     if (!meta || meta->type != JSON_OBJECT) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.bad-entry", name, used_base));
+        pmm_error("%s", pmm_tr_fmt("msg.err.bad-registry-entry", name, used_base));
         json_free(meta);
         mirrors_free(ml);
         return -1;
@@ -878,7 +878,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         /* legacy single-platform entry */
         dl = json_str(meta, "url"); file = json_str(meta, "file");
         const char *s = json_str(meta, "sha256"); want_sha = s ? strdup(s) : NULL;
-        pmm_info("%s", pmm_tr_fmt("msg.selected", name, json_str(meta, "version")), osn);
+        pmm_info("%s", pmm_tr_fmt("msg.selected", name, json_str(meta, "version"), osn, ""));
     }
     if (!dl) {
         pmm_error("%s", pmm_tr_fmt("msg.err.registry-entry-no-url", name));
@@ -897,8 +897,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         snprintf(path, sizeof(path), "%s/%s", cache, file_cp);
         if (pmm_sha256_file(path, hex) == 0) {
             if (strcasecmp(want_sha, hex) != 0) {
-                pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", 
-                                "  expected: %s\n  actual:   %s\n", name, want_sha, hex));
+                pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", name, want_sha, hex));
                 remove(path);
                 rc = -1;
             } else {
