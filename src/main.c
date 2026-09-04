@@ -238,21 +238,156 @@ static int cmd_info(int argc, char **argv) {
     const char *name = json_str(root, "name");
     const char *ver  = json_str(root, "version");
     pmm_info("%s%s%s\n", name ? name : pkg, ver ? " " : "", ver ? ver : "");
+    const char *desc = json_str(root, "description");
+    if (desc) pmm_info("description: %s\n", desc);
     JsonValue *vr = json_get(root, "variants");
     if (vr && vr->count > 0) {
+        printf("  versions:\n");
         for (int i = 0; i < vr->count; i++) {
             JsonValue *v = json_at(vr, i);
             if (!v) continue;
             const char *vv = json_str(v, "version");
             const char *osn = json_str(v, "os");
             const char *archn = json_str(v, "arch");
-            printf("  %s   %s/%s\n", vv ? vv : "?", osn ? osn : "-", archn ? archn : "-");
+            printf("    %-12s %s/%s\n", vv ? vv : "?", osn ? osn : "-", archn ? archn : "-");
         }
     } else {
         const char *u = json_str(root, "url");
+        const char *s256 = json_str(root, "sha256");
         printf("  url: %s\n", u ? u : "-");
+        if (s256) printf("  sha256: %s\n", s256);
     }
     json_free(root);
+    return 0;
+}
+
+/* Compare two dotted versions ("1.0.51" vs "1.0.5"), numeric component-wise.
+ * Returns >0 if a is newer, <0 if b newer, 0 if equal. Mirrors install.c vcmp. */
+static int cmp_version(const char *a, const char *b) {
+    const char *pa = a, *pb = b;
+    while (*pa || *pb) {
+        double va = 0, vb = 0; int ha = 0, hb = 0;
+        while (*pa && *pa != '.' && *pa != '-') { va = va * 10 + (*pa - '0'); pa++; ha = 1; }
+        while (*pb && *pb != '.' && *pb != '-') { vb = vb * 10 + (*pb - '0'); pb++; hb = 1; }
+        if (ha != hb) return ha < hb ? -1 : 1;
+        if (va != vb) return va < vb ? -1 : 1;
+        if (*pa == '.') pa++; if (*pb == '.') pb++;
+    }
+    return 0;
+}
+
+/* Read "Package:" and "Version:" from the first lines of an installed .info.
+ * The header block is authoritative (the embedded ctl repeats them lower). */
+static void installed_version(const char *info, char *pkg, size_t pkgsz, char *ver, size_t versz) {
+    const char *p = info;
+    pkg[0] = ver[0] = '\0';
+    while (p && *p) {
+        const char *eol = strchr(p, '\n');
+        size_t ll = eol ? (size_t)(eol - p) : strlen(p);
+        char line[512];
+        if (ll >= sizeof(line)) ll = sizeof(line) - 1;
+        memcpy(line, p, ll); line[ll] = '\0';
+        char *colon = strchr(line, ':');
+        if (colon) {
+            *colon = '\0';
+            const char *key = line, *val = colon + 1;
+            while (*val == ' ' || *val == '\t') val++;
+            char *e = val + strlen(val);
+            while (e > val && (e[-1] == ' ' || e[-1] == '\r')) *--e = '\0';
+            if (strcmp(key, "Package") == 0) snprintf(pkg, pkgsz, "%s", val);
+            else if (strcmp(key, "Version") == 0) snprintf(ver, versz, "%s", val);
+        }
+        if (!eol) break;
+        p = eol + 1;
+    }
+}
+
+/* pmm upgrade — for each installed .pdm, look up the registry latest version
+ * and offer to upgrade. With --yes, upgrade without prompting. */
+static int cmd_upgrade(int argc, char **argv) {
+    int yes = 0;
+    for (int i = 0; i < argc; i++)
+        if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0) yes = 1;
+
+    char home[1024];
+    pmm_config_dir(home, sizeof(home));
+    char db[1200];
+    snprintf(db, sizeof(db), "%s/installed", home);
+
+    DIR *d = opendir(db);
+    if (!d) { pmm_info("no installed packages.\n"); return 0; }
+
+    PmmConfig cfg; MirrorSel mirror;
+    load_config(&cfg); load_mirror(&cfg, &mirror);
+
+    struct dirent *e;
+    int upgraded = 0, checked = 0;
+    while ((e = readdir(d)) != NULL) {
+        size_t ln = strlen(e->d_name);
+        if (ln < 5 || strcmp(e->d_name + ln - 5, ".info") != 0) continue;
+        char ipath[1400], info[4096];
+        snprintf(ipath, sizeof(ipath), "%s/%s", db, e->d_name);
+        FILE *fp = fopen(ipath, "rb");
+        if (!fp) continue;
+        size_t got = fread(info, 1, sizeof(info) - 1, fp);
+        fclose(fp);
+        info[got] = '\0';
+
+        char pkg[256], curver[128];
+        installed_version(info, pkg, sizeof(pkg), curver, sizeof(curver));
+        if (!pkg[0]) continue;
+        checked++;
+
+        /* fetch latest for this package (current os/arch) */
+        char rel[512]; snprintf(rel, sizeof(rel), "%s.json", pkg);
+        int status = 0;
+        char *body = registry_fetch(rel, &status);
+        if (!body) { pmm_warn("skipping %s: no registry entry\n", pkg); continue; }
+        JsonValue *root = json_parse(body);
+        free(body);
+        if (!root) continue;
+
+        const char *osn = pmm_os_name(pmm_detect_os());
+        const char *arn = pmm_detect_arch();
+        const char *best = NULL;
+        JsonValue *vr = json_get(root, "variants");
+        if (vr && vr->count > 0) {
+            for (int i = 0; i < vr->count; i++) {
+                JsonValue *v = json_at(vr, i);
+                if (!v || v->type != JSON_OBJECT) continue;
+                const char *vos = json_str(v, "os");
+                if (!vos || (strcmp(vos, osn) != 0 && strcmp(vos, "any") != 0)) continue;
+                const char *va = json_str(v, "arch");
+                if (va && va[0] && strcmp(va, arn) != 0 && strcmp(va, "any") != 0) continue;
+                const char *vv = json_str(v, "version");
+                if (!vv) continue;
+                if (!best || cmp_version(vv, best) > 0) best = vv;
+            }
+        } else {
+            best = json_str(root, "version");
+        }
+        json_free(root);
+        if (!best) continue;
+
+        if (cmp_version(best, curver) <= 0) { pmm_info("%s %s is up to date (latest %s)\n", pkg, curver, best); continue; }
+
+        pmm_info("%s: %s -> %s\n", pkg, curver, best);
+        if (!yes) {
+            printf("  upgrade? [y/N] ");
+            fflush(stdout);
+            char ans[8] = "";
+            if (!fgets(ans, sizeof(ans), stdin)) ans[0] = '\0';
+            if (!(ans[0] == 'y' || ans[0] == 'Y')) continue;
+        }
+        if (install_from_registry(pkg, NULL, mirror.name) == 0) { upgraded++; }
+        else pmm_error("failed to upgrade %s\n", pkg);
+    }
+    closedir(d);
+
+    free(cfg.registry_url); free(cfg.mirror_name);
+    free(mirror.name); free(mirror.api_base);
+    if (checked == 0) pmm_info("no installed .pdm packages.\n");
+    else pmm_success("upgraded %d package(s).\n", upgraded);
     return 0;
 }
 
@@ -485,6 +620,7 @@ static void print_help(void) {
     printf("  pmm list                              list installed packages\n");
     printf("  pmm remove <pkg>                      uninstall a package\n");
     printf("  pmm self-update                       update pmm (auto os/arch)\n");
+    printf("  pmm upgrade [--yes]                   upgrade all installed packages\n");
     printf("  pmm install --git <repo-url.git>      any git host, API auto-detected\n");
     printf("  pmm install --github <owner/repo>     GitHub latest release\n");
     printf("  pmm install --gitlab <owner/repo>     GitLab latest release\n");
@@ -495,7 +631,10 @@ static void print_help(void) {
     printf("  pmm version | help\n\n");
     printf("options:\n");
     printf("  -p<drive>    install under <DRIVE>:\\\\.pmm (e.g. -pd -> D:\\\\.pmm, -pc -> C:\\\\.pmm)\n");
-    printf("               第一个 -p 会被记住，后续命令无需再写；用 -pc 切回 C 盘\n\n");
+    printf("               第一个 -p 会被记住，后续命令无需再写；用 -pc 切回 C 盘\n");
+    printf("  --no-color   omit ANSI colours even on a terminal (PMM_NO_COLOR=1 too)\n");
+    printf("  -q, --quiet  only print errors/warnings (suppress info/success)\n");
+    printf("  --verbose    print extra detail\n\n");
     printf("config: <base>/pmm.json | pmm.ini | pmm.conf  (base = <drive>:\\\\.pmm 或 ~/.pmm)\n");
     printf("mirrors: <base>/mirror.ini | mirror.conf\n");
     printf("asset mapping: windows=exe/msi/zip/7z  linux=deb/rpm/appimage/tar.*  macos=dmg/pkg\n");
@@ -531,6 +670,22 @@ static int consume_drive_flag(int argc, char **argv) {
     return w;
 }
 
+/* Strip global output flags (--no-color/-q/--quiet/--verbose) from argv before
+ * dispatch, so every subcommand gets the same behaviour without each having to
+ * parse them. Also honours PMM_NO_COLOR=1 env. Returns the new argc. */
+static int consume_global_flags(int argc, char **argv) {
+    int w = 1;
+    for (int r = 1; r < argc; r++) {
+        const char *a = argv[r];
+        if (strcmp(a, "--no-color") == 0) { pmm_no_color = 1; continue; }
+        if (strcmp(a, "-q") == 0 || strcmp(a, "--quiet") == 0) { pmm_log_level = 1; continue; }
+        if (strcmp(a, "--verbose") == 0) { pmm_log_level = 2; continue; }
+        argv[w++] = argv[r];
+    }
+    if (getenv("PMM_NO_COLOR")) pmm_no_color = 1;
+    return w;
+}
+
 int main(int argc, char **argv) {
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);   /* UTF-8 output so Chinese help/version isn't mojibake */
@@ -554,6 +709,7 @@ int main(int argc, char **argv) {
     if (argc < 2) { print_help(); return 0; }
     pmm_set_self_path(argv[0]);
     argc = consume_drive_flag(argc, argv);
+    argc = consume_global_flags(argc, argv);
     if (argc < 2) { print_help(); return 0; }
 
     if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
@@ -585,6 +741,9 @@ int main(int argc, char **argv) {
                    pmm_config_dir((char[1024]){0}, 1024));
         return rc == 0 ? 0 : 1;
     }
+
+    if (strcmp(argv[1], "upgrade") == 0)
+        return cmd_upgrade(argc - 2, argv + 2);
 
     if (strcmp(argv[1], "install") == 0) {
         if (argc >= 3 && (strcmp(argv[2], "--git") == 0 || strcmp(argv[2], "--github") == 0 ||
