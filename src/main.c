@@ -268,6 +268,33 @@ static int cmd_info(int argc, char **argv) {
     return 0;
 }
 
+/* List the *.info files in `dir` into a caller array `names[]` (up to `cap`
+ * entries). Returns the count. */
+static int list_info_files(const char *dir, char names[][1400], int cap) {
+    int n = 0;
+#ifdef _WIN32
+    char pat[1500]; snprintf(pat, sizeof(pat), "%s\\*.info", dir);
+    WIN32_FIND_DATAA fd; HANDLE h = FindFirstFileA(pat, &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (n < cap) snprintf(names[n++], 1400, "%s/%s", dir, fd.cFileName);
+        } while (FindNextFileA(h, &fd));
+        FindClose(h);
+    }
+#else
+    DIR *d = opendir(dir);
+    if (!d) return 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        size_t ln = strlen(e->d_name);
+        if (ln < 5 || strcmp(e->d_name + ln - 5, ".info") != 0) continue;
+        if (n < cap) snprintf(names[n++], 1400, "%s/%s", dir, e->d_name);
+    }
+    closedir(d);
+#endif
+    return n;
+}
+
 /* Compare two dotted versions ("1.0.51" vs "1.0.5"), numeric component-wise.
  * Returns >0 if a is newer, <0 if b newer, 0 if equal. Mirrors install.c vcmp. */
 static int cmp_version(const char *a, const char *b) {
@@ -327,19 +354,17 @@ static int cmd_upgrade(int argc, char **argv) {
     char db[1200];
     snprintf(db, sizeof(db), "%s/installed", home);
 
-    DIR *d = opendir(db);
-    if (!d) { pmm_info("no installed packages.\n"); return 0; }
-
     PmmConfig cfg; MirrorSel mirror;
     load_config(&cfg); load_mirror(&cfg, &mirror);
 
-    struct dirent *e;
+    char files[128][1400];
+    int nfiles = list_info_files(db, files, 128);
+    if (nfiles == 0) { pmm_info("no installed packages.\n"); return 0; }
+
     int upgraded = 0, checked = 0;
-    while ((e = readdir(d)) != NULL) {
-        size_t ln = strlen(e->d_name);
-        if (ln < 5 || strcmp(e->d_name + ln - 5, ".info") != 0) continue;
-        char ipath[1400], info[4096];
-        snprintf(ipath, sizeof(ipath), "%s/%s", db, e->d_name);
+    for (int fi = 0; fi < nfiles; fi++) {
+        const char *ipath = files[fi];
+        char info[4096];
         FILE *fp = fopen(ipath, "rb");
         if (!fp) continue;
         size_t got = fread(info, 1, sizeof(info) - 1, fp);
@@ -399,7 +424,6 @@ static int cmd_upgrade(int argc, char **argv) {
         if (install_from_registry(pkg, NULL, mirror.name) == 0) { upgraded++; }
         else pmm_error("failed to upgrade %s\n", pkg);
     }
-    closedir(d);
 
     free(cfg.registry_url); free(cfg.mirror_name);
     free(mirror.name); free(mirror.api_base);
