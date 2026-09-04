@@ -2,6 +2,7 @@
 #include "pdm.h"
 #include "pmm.h"
 #include "out.h"
+#include "i18n.h"
 #include "install.h"
 #include "sha256.h"
 #include <stdio.h>
@@ -137,13 +138,13 @@ int pdm_pack(const char *dir, const char *out) {
     snprintf(cp_, sizeof(cp_), "%s/pdm-control", dir);
     char *control = read_file(cp_, NULL);
     if (!control) {
-        pmm_error("%s has no pdm-control file\n", dir);
+        pmm_error("%s", pmm_tr_fmt("msg.err.no-control", dir));
         return -1;
     }
     char *pkg = control_get(control, "Package");
     char *ver = control_get(control, "Version");
     if (!pkg || !*pkg) {
-        pmm_error("pdm-control missing 'Package:' field\n");
+        pmm_error(pmm_tr("msg.err.no-package"));
         free(control); return -1;
     }
     if (!ver || !*ver) ver = strdup("0.0.0");
@@ -164,13 +165,13 @@ int pdm_pack(const char *dir, const char *out) {
 
     /* control.tar.gz (contains pdm-control; packed from the source dir) */
     snprintf(cmd, sizeof(cmd), "tar -czf \"%s/control.tar.gz\" -C \"%s\" pdm-control", stage, dir);
-    if (system(cmd) != 0) { pmm_error("tar (control) failed\n"); rmtree(stage); return -1; }
+    if (system(cmd) != 0) { pmm_error(pmm_tr("msg.err.tar-control")); rmtree(stage); return -1; }
 
     /* data.tar.gz (everything except pdm-control and the scratch dir) */
     snprintf(cmd, sizeof(cmd),
              "tar -czf \"%s/data.tar.gz\" -C \"%s\" --exclude pdm-control --exclude %s .",
              stage, dir, stage);
-    if (system(cmd) != 0) { pmm_error("tar (data) failed\n"); rmtree(stage); return -1; }
+    if (system(cmd) != 0) { pmm_error(pmm_tr("msg.err.tar-data")); rmtree(stage); return -1; }
 
     /* sha256sums of the two members */
     char sums_path[1100], hex[128];
@@ -189,9 +190,9 @@ int pdm_pack(const char *dir, const char *out) {
     snprintf(cmd, sizeof(cmd), "tar -cf \"%s\" -C \"%s\" control.tar.gz data.tar.gz sha256sums", out, stage);
     int rc = system(cmd);
     rmtree(stage);
-    if (rc != 0) { pmm_error("failed to write %s\n", out); return -1; }
+    if (rc != 0) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", out)); return -1; }
 
-    pmm_success("packed %s (%s %s) -> %s\n", dir, pkg, ver, out);
+    pmm_success("%s", pmm_tr_fmt("msg.packed", dir, pkg, ver, out));
     free(control); free(pkg);
     if (strcmp(ver, "0.0.0") != 0) free(ver);
     return 0;
@@ -374,7 +375,7 @@ int pdm_info(const char *pdmfile) {
 
 int pdm_install_file(const char *pdmfile) {
     if (!ends_with(pdmfile, ".pdm")) {
-        pmm_error("'%s' is not a .pdm file\n", pdmfile);
+        pmm_error("%s", pmm_tr_fmt("msg.err.not-pdm", pdmfile));
         return -1;
     }
     char home[1024], db[1024], root[1024], cmd[2600];
@@ -394,11 +395,11 @@ int pdm_install_file(const char *pdmfile) {
     char tmpname[1400], tmprel[] = "_pmm_install.pdm";
     snprintf(tmpname, sizeof(tmpname), "%s/_pmm_install.pdm", home);
     if (copy_file(pdmfile, tmpname) != 0) {
-        pmm_error("cannot read %s\n", pdmfile);
+        pmm_error("%s", pmm_tr_fmt("msg.err.cannot-read", pdmfile));
         return -1;
     }
     if (chdir_save(home) != 0) { remove(tmpname); return -1; }
-    if (system(NULL) == 0) { pmm_error("cannot run tar\n"); chdir_restore(); remove(tmpname); return -1; }
+    if (system(NULL) == 0) { pmm_error(pmm_tr("msg.err.no-tar")); chdir_restore(); remove(tmpname); return -1; }
 
     const char *stage = "installed/.stage";
     rmtree(stage);
@@ -407,7 +408,7 @@ int pdm_install_file(const char *pdmfile) {
     /* extract members (all relative) */
     snprintf(cmd, sizeof(cmd), "tar -xf \"%s\" -C \"%s\"", tmprel, stage);
     if (system(cmd) != 0) {
-        pmm_error("not a valid .pdm archive: %s\n", pdmfile);
+        pmm_error("%s", pmm_tr_fmt("msg.err.bad-archive", pdmfile));
         chdir_restore(); remove(tmpname); return -1;
     }
 
@@ -421,21 +422,21 @@ int pdm_install_file(const char *pdmfile) {
             char mp[1200];
             snprintf(mp, sizeof(mp), "installed/.stage/%s", fname);
             if (pmm_sha256_file(mp, hex) != 0 || strcasecmp(hex, expect) != 0) {
-                pmm_error("CHECKSUM MISMATCH for %s in %s\n", fname, pdmfile);
+                pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", fname, pdmfile));
                 fclose(sf); chdir_restore(); remove(tmpname); return -1;
             }
         }
         fclose(sf);
-        pmm_success("sha256 checksums OK\n");
+        pmm_success(pmm_tr("msg.checksum-ok"));
     } else {
-        pmm_warn("warning: no sha256sums member, skipping integrity check\n");
+        pmm_warn(pmm_tr("msg.warn.no-checksum"));
     }
 
     /* read control */
     snprintf(cmd, sizeof(cmd), "tar -xzOf \"%s/control.tar.gz\" pdm-control", stage);
     FILE *cf = PMM_POPEN_READ(cmd);
     if (!cf) {
-        pmm_error("missing control.tar.gz in %s\n", pdmfile);
+        pmm_error("%s", pmm_tr_fmt("msg.err.no-control-tar", pdmfile));
         chdir_restore(); remove(tmpname); return -1;
     }
     char ctl[4096];
@@ -448,7 +449,7 @@ int pdm_install_file(const char *pdmfile) {
     char *pkg = control_get(ctl, "Package");
     char *ver = control_get(ctl, "Version");
     if (!pkg || !*pkg) {
-        pmm_error("package has no Package: field\n");
+        pmm_error(pmm_tr("msg.err.no-package"));
         chdir_restore(); remove(tmpname); return -1;
     }
 
@@ -456,7 +457,7 @@ int pdm_install_file(const char *pdmfile) {
     const char *tgt = flat ? "." : "root";
     snprintf(cmd, sizeof(cmd), "tar -xzf \"%s/data.tar.gz\" -C \"%s\"", stage, tgt);
     if (system(cmd) != 0) {
-        pmm_error("data extraction failed\n");
+        pmm_error(pmm_tr("msg.err.extract"));
         chdir_restore(); remove(tmpname); return -1;
     }
 
@@ -487,7 +488,7 @@ int pdm_install_file(const char *pdmfile) {
             }
             PMM_PCLOSE_READ(tf);
         } else {
-            pmm_warn("warning: could not record file list\n");
+            pmm_warn(pmm_tr("msg.warn.no-filelist"));
         }
         fclose(dbf);
     }
@@ -554,7 +555,7 @@ int pdm_remove(const char *name) {
     long len = 0;
     char *info = read_file(ipath, &len);
     if (!info) {
-        pmm_error("package '%s' is not installed\n", name);
+        pmm_error("%s", pmm_tr_fmt("msg.err.not-installed", name));
         return -1;
     }
     char *files = strstr(info, "Files:\n");
@@ -582,7 +583,7 @@ int pdm_remove(const char *name) {
     }
     remove(ipath);
     free(info);
-    pmm_success("removed %s (%d files)\n", name, n);
+    pmm_success("%s", pmm_tr_fmt("msg.removed", name, n));
     pmm_reg_uninstall_clear(name);  /* drop it from Installed Apps */
     return 0;
 }

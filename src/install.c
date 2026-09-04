@@ -14,6 +14,7 @@
 #include "install.h"
 #include "pmm.h"
 #include "out.h"
+#include "i18n.h"
 #include "http.h"
 #include "json.h"
 #include "sha256.h"
@@ -117,16 +118,15 @@ static int verify_checksums(const char *url, const char *path, const char *name)
         extract_hex(text, name, expect, sizeof(expect));
         free(text);
         if (!expect[0]) {
-            pmm_warn("warning: could not parse %s checksum file\n", algos[i].ext);
+            pmm_warn("%s", pmm_tr_fmt("msg.warn.parse-checksum", algos[i].ext));
             continue;
         }
         /* case-insensitive compare */
         if (strcasecmp(expect, hex) != 0) {
-            pmm_error("CHECKSUM MISMATCH (%s)!\n  expected: %s\n  actual:   %s\n",
-                    algos[i].ext, expect, hex);
+            pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", algos[i].ext, expect, hex));
             return -1;
         }
-        pmm_success("%s checksum OK: %s\n", algos[i].algo == 256 ? "sha256" : "sha1", hex);
+        pmm_success("%s", pmm_tr_fmt("msg.checksum-ok", algos[i].algo == 256 ? "sha256" : "sha1", hex));
     }
     return 0;
 }
@@ -419,29 +419,29 @@ int install_file(const char *url, const char *name) {
     char **cands = mirrors_download_candidates(ml, url, &ncand);
     int ok = -1;
     for (int i = 0; i < ncand; i++) {
-        pmm_info("downloading %s%s\n", cands[i],
-               i < ncand - 1 ? " (mirror)" : "");
+        pmm_info("%s", pmm_tr_fmt("msg.downloading", cands[i],
+               i < ncand - 1 ? " (mirror)" : ""));
         if (http_download(cands[i], path) == 0) { ok = 0; break; }
-        pmm_warn("download failed, trying next source...\n");
+        pmm_warn("%s", pmm_tr("msg.warn.download-retry"));
         remove(path);
     }
     for (int i = 0; i < ncand; i++) free(cands[i]);
     free(cands);
     mirrors_free(ml);
     if (ok != 0) {
-        pmm_error("all download sources failed: %s\n", url);
+        pmm_error("%s", pmm_tr_fmt("msg.err.download-failed", url));
         return -1;
     }
-    pmm_success("downloaded %s\n", path);
+    pmm_success("%s", pmm_tr_fmt("msg.downloaded", path));
 
     /* integrity: sha256 + sha1, verified against sidecar checksums when present */
     char hex[128];
     if (pmm_sha256_file(path, hex) == 0)
-        pmm_info("sha256: %s\n", hex);
+        pmm_info("%s", pmm_tr_fmt("msg.sha256", hex));
     if (pmm_sha1_file(path, hex) == 0)
-        pmm_info("sha1:   %s\n", hex);
+        pmm_info("%s", pmm_tr_fmt("msg.sha1", hex));
     if (verify_checksums(url, path, name) != 0) {
-        pmm_error("refusing to install: checksum verification failed\n");
+        pmm_error(pmm_tr("msg.err.checksum-refuse"));
         remove(path);
         return -1;
     }
@@ -461,10 +461,9 @@ static int install_path(const char *path, const char *name) {
     /* A bare binary (no extension) must really be a native executable for this
      * OS; otherwise refuse so the caller can fall back to the os-named asset. */
     if (strchr(bname, '.') == NULL) {
-        pmm_info("verifying %s is a native %s binary...\n", bname, pmm_os_name(os));
+        pmm_info("%s", pmm_tr_fmt("msg.verifying-native", bname, pmm_os_name(os)));
         if (!native_binary_ok(path, os)) {
-            pmm_warn("%s is not a usable %s binary; will fall back\n",
-                    bname, pmm_os_name(os));
+            pmm_warn("%s", pmm_tr_fmt("msg.warn.not-usable", bname, pmm_os_name(os)));
             return -1;
         }
     }
@@ -479,12 +478,12 @@ static int install_path(const char *path, const char *name) {
     /* .pdm packages are installed through the deb-like manager */
     if (has_suffix(bname, ".pdm") || has_suffix(bname, ".PDM")) {
         extern int pdm_install_file(const char *path);
-        pmm_info("installing .pdm %s ...\n", bname);
+        pmm_info("%s", pmm_tr_fmt("msg.installing", bname));
         if (pdm_install_file(path) != 0) {
-            pmm_error(".pdm install failed: %s\n", bname);
+            pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", bname));
             return -1;
         }
-        pmm_success("installed .pdm %s\n", bname);
+        pmm_success("%s", pmm_tr_fmt("msg.installed", bname));
         pmm_add_to_path();
         return 0;
     }
@@ -553,7 +552,7 @@ static int install_path(const char *path, const char *name) {
                 "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
                 "else echo -e \"\\033[31m[PMM]:[ERROR]cannot unpack .rpm (need rpm/cpio)\\033[0m\" 1>&2; exit 1; fi",
                 path, path, path);
-            if (system(cmd) != 0) { pmm_error("rpm install failed\n"); return -1; }
+            if (system(cmd) != 0) { pmm_error(pmm_tr("msg.err.failed-install")); return -1; }
             (void)dcmd; (void)ct;
 #else
             /* create the (possibly multi-level) stage dir first; pmm_cpio_unpack
@@ -563,18 +562,18 @@ static int install_path(const char *path, const char *name) {
                 char mkstag[1400];
                 snprintf(mkstag, sizeof(mkstag), "mkdir -p \"%s\"", fstage);
                 if (system(mkstag) != 0) {
-                    pmm_error("cannot create rpm stage dir: %s\n", fstage);
+                    pmm_error("%s", pmm_tr_fmt("msg.err.rpm-stage", fstage));
                     return -1;
                 }
             }
             /* unpack into stage (no sudo needed; stage is user-writable) */
             if (pmm_cpio_unpack_cmd(fstage, dcmd) != 0) {
-                pmm_error("rpm payload decompress/cpio failed (need %s)\n", dc);
+                pmm_error("%s", pmm_tr_fmt("msg.err.rpm-decompress", dc));
                 return -1;
             }
             /* copy the unpacked payload into /, then clean up */
             if (system(cmd) != 0) {
-                pmm_error("failed to copy rpm payload into /\n");
+                pmm_error(pmm_tr("msg.err.rpm-copy"));
                 return -1;
             }
             (void)ct;
@@ -636,12 +635,12 @@ static int install_path(const char *path, const char *name) {
             snprintf(cmd, sizeof(cmd), "cp -f \"%s\" \"%s/\" 2>/dev/null || true", path, dest);
     }
 
-    pmm_info("installing %s ...\n", bname);
+    pmm_info("%s", pmm_tr_fmt("msg.installing", bname));
     if (run_cmd_quiet(cmd) != 0) {
-        pmm_error("install command failed: %s\n", cmd);
+        pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", cmd));
         return -1;
     }
-    pmm_success("installed %s\n", bname);
+    pmm_success("%s", pmm_tr_fmt("msg.installed", bname));
     pmm_add_to_path();
     return 0;
 }
@@ -649,11 +648,11 @@ static int install_path(const char *path, const char *name) {
 /* Install a local file by its extension — e.g. `pmm install -dpkg foo.deb`
  * (Linux) or `pmm install -msi foo.msi` (Windows). Returns 0 on success. */
 int install_local_file(const char *path) {
-    if (!path || !*path) { pmm_error("empty file path\n"); return -1; }
+    if (!path || !*path) { pmm_error(pmm_tr("msg.err.empty-path")); return -1; }
     FILE *chk = fopen(path, "rb");
-    if (!chk) { pmm_error("cannot open file: %s\n", path); return -1; }
+    if (!chk) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-open", path)); return -1; }
     fclose(chk);
-    pmm_info("installing local file %s\n", path);
+    pmm_info("%s", pmm_tr_fmt("msg.installing-file", path));
     return install_path(path, path);
 }
 
@@ -805,7 +804,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         if (!seen[i] && ml->items[i].registry && *ml->items[i].registry)
             bases[nb++] = ml->items[i].registry;
 
-    if (nb == 0) { pmm_error("no registry mirrors\n"); mirrors_free(ml); return -1; }
+    if (nb == 0) { pmm_error(pmm_tr("msg.err.no-registry-mirror")); mirrors_free(ml); return -1; }
 
     /* fetch the <pkg>.json latest pointer (carries the variants list) */
     char url[2048];
@@ -814,7 +813,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
     char *used_base = NULL;
     for (int i = 0; i < nb; i++) {
         snprintf(url, sizeof(url), "%s/%s.json", bases[i], name);
-        pmm_info("looking up %s in mirror %s\n", name, bases[i]);
+        pmm_info("%s", pmm_tr_fmt("msg.looking-up", name, bases[i]));
         body = http_get(url, &status);
         if (getenv("PMM_DEBUG")) fprintf(stderr, "[reg] %s -> body=%s status=%d\n",
                                          bases[i], body ? "set" : "NULL", status);
@@ -825,14 +824,14 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         free(body); body = NULL;
     }
     if (!body) {
-        pmm_error("package '%s' not found in any registry mirror\n", name);
+        pmm_error("%s", pmm_tr_fmt("msg.err.registry-not-found", name));
         mirrors_free(ml);
         return -1;
     }
     JsonValue *meta = json_parse(body);
     free(body);
     if (!meta || meta->type != JSON_OBJECT) {
-        pmm_error("bad registry entry for '%s' (%s)\n", name, used_base);
+        pmm_error("%s", pmm_tr_fmt("msg.err.bad-entry", name, used_base));
         json_free(meta);
         mirrors_free(ml);
         return -1;
@@ -870,19 +869,19 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
                 const char *s = json_str(v, "sha256"); free(want_sha); want_sha = s ? strdup(s) : NULL; }
         }
         if (!chosen) {
-            pmm_error("no version of '%s' for os=%s arch=%s%s%s\n", name, osn, arch,
-                    (spec && *spec) ? " satisfying '" : "", (spec && *spec) ? spec : "");
+            pmm_error("%s", pmm_tr_fmt("msg.no-version", name, osn, arch,
+                    (spec && *spec)) ? " satisfying '" : "", (spec && *spec) ? spec : "");
             json_free(meta); mirrors_free(ml); return -1;
         }
-        pmm_info("selected %s@%s (os=%s arch=%s)\n", name, chosen, osn, arch);
+        pmm_info("%s", pmm_tr_fmt("msg.selected", name, chosen, osn, arch));
     } else {
         /* legacy single-platform entry */
         dl = json_str(meta, "url"); file = json_str(meta, "file");
         const char *s = json_str(meta, "sha256"); want_sha = s ? strdup(s) : NULL;
-        pmm_info("selected %s@%s (os=%s)\n", name, json_str(meta, "version"), osn);
+        pmm_info("%s", pmm_tr_fmt("msg.selected", name, json_str(meta, "version")), osn);
     }
     if (!dl) {
-        pmm_error("registry entry for '%s' has no url\n", name);
+        pmm_error("%s", pmm_tr_fmt("msg.err.registry-entry-no-url", name));
         json_free(meta); mirrors_free(ml); return -1;
     }
     char *url_cp = strdup(dl);
@@ -898,12 +897,12 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         snprintf(path, sizeof(path), "%s/%s", cache, file_cp);
         if (pmm_sha256_file(path, hex) == 0) {
             if (strcasecmp(want_sha, hex) != 0) {
-                pmm_error("CHECKSUM MISMATCH (%s registry entry)!\n"
-                                "  expected: %s\n  actual:   %s\n", name, want_sha, hex);
+                pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", 
+                                "  expected: %s\n  actual:   %s\n", name, want_sha, hex));
                 remove(path);
                 rc = -1;
             } else {
-                pmm_success("registry sha256 OK: %s\n", hex);
+                pmm_success("%s", pmm_tr_fmt("msg.registry-ok", hex));
             }
         }
     }
@@ -917,6 +916,6 @@ static int install_dep_spec(const char *depstr) {
     for (int i = 0; i < dep_seen_n; i++)
         if (strcmp(dep_seen[i], name) == 0) return 0;   /* cycle / duplicate */
     if (dep_seen_n < 128) dep_seen[dep_seen_n++] = strdup(name);
-    pmm_info("resolving dependency %s%s%s\n", name, spec[0] ? " " : "", spec);
+    pmm_info("%s", pmm_tr_fmt("msg.resolving-dep", name, spec[0] ? " " : "", spec));
     return install_from_registry(name, spec[0] ? spec : NULL, NULL);
 }

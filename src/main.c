@@ -209,13 +209,13 @@ static char *registry_fetch(const char *rel, int *outstatus) {
 
 /* pmm search <keyword> — list registry packages matching keyword. */
 static int cmd_search(int argc, char **argv) {
-    if (argc < 1) { pmm_error("usage: pmm search <keyword>\n"); return 1; }
+    if (argc < 1) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
     int status = 0;
     char *body = registry_fetch("packages.json", &status);
-    if (!body) { pmm_error("no registry index (packages.json) available\n"); return 1; }
+    if (!body) { pmm_error("%s", pmm_tr("msg.err.no-registry-index")); return 1; }
     JsonValue *root = json_parse(body);
     free(body);
-    if (!root || root->type != JSON_ARRAY) { pmm_error("bad registry index\n"); json_free(root); return 1; }
+    if (!root || root->type != JSON_ARRAY) { pmm_error("%s", pmm_tr("msg.err.bad-registry-index")); json_free(root); return 1; }
     const char *kw = argv[0];
     int found = 0;
     for (int i = 0; i < root->count; i++) {
@@ -225,7 +225,7 @@ static int cmd_search(int argc, char **argv) {
         if (ci_contains(name, kw)) { printf("  %s\n", name); found++; }
     }
     json_free(root);
-    if (!found) pmm_info("no package matches '%s'\n", kw);
+    if (!found) pmm_info("%s", pmm_tr_fmt("msg.no-match", kw));
     return 0;
 }
 
@@ -245,15 +245,15 @@ static int cmd_info(int argc, char **argv) {
     char rel[512]; snprintf(rel, sizeof(rel), "%s.json", pkg);
     int status = 0;
     char *body = registry_fetch(rel, &status);
-    if (!body) { pmm_error("package '%s' not found in registry\n", pkg); return 1; }
+    if (!body) { pmm_error("%s", pmm_tr_fmt("msg.err.not-found", pkg)); return 1; }
     JsonValue *root = json_parse(body);
     free(body);
-    if (!root || root->type != JSON_OBJECT) { pmm_error("bad registry entry '%s'\n", pkg); json_free(root); return 1; }
+    if (!root || root->type != JSON_OBJECT) { pmm_error("%s", pmm_tr_fmt("msg.err.bad-entry", pkg)); json_free(root); return 1; }
     const char *name = json_str(root, "name");
     const char *ver  = json_str(root, "version");
     pmm_info("%s%s%s\n", name ? name : pkg, ver ? " " : "", ver ? ver : "");
     const char *desc = json_str(root, "description");
-    if (desc) pmm_info("description: %s\n", desc);
+    if (desc) pmm_info("%s", pmm_tr_fmt("msg.description", desc));
     JsonValue *vr = json_get(root, "variants");
     if (vr && vr->count > 0) {
         printf("  versions:\n");
@@ -366,7 +366,7 @@ static int cmd_upgrade(int argc, char **argv) {
 
     char files[128][1400];
     int nfiles = list_info_files(db, files, 128);
-    if (nfiles == 0) { pmm_info("no installed packages.\n"); return 0; }
+    if (nfiles == 0) { pmm_info("%s", pmm_tr("msg.no-installed")); return 0; }
 
     int upgraded = 0, checked = 0;
     for (int fi = 0; fi < nfiles; fi++) {
@@ -387,7 +387,7 @@ static int cmd_upgrade(int argc, char **argv) {
         char rel[512]; snprintf(rel, sizeof(rel), "%s.json", pkg);
         int status = 0;
         char *body = registry_fetch(rel, &status);
-        if (!body) { pmm_warn("skipping %s: no registry entry\n", pkg); continue; }
+        if (!body) { pmm_warn("%s", pmm_tr_fmt("msg.skipping-no-registry", pkg)); continue; }
         JsonValue *root = json_parse(body);
         free(body);
         if (!root) continue;
@@ -418,7 +418,7 @@ static int cmd_upgrade(int argc, char **argv) {
         json_free(root);
         if (!best) continue;
 
-        if (cmp_version(bestbuf, curver) <= 0) { pmm_info("%s %s is up to date (latest %s)\n", pkg, curver, bestbuf); continue; }
+        if (cmp_version(bestbuf, curver) <= 0) { pmm_info("%s", pmm_tr_fmt("msg.up-to-date", pkg, curver, bestbuf)); continue; }
 
         pmm_info("%s: %s -> %s\n", pkg, curver, bestbuf);
         if (!yes) {
@@ -429,13 +429,13 @@ static int cmd_upgrade(int argc, char **argv) {
             if (!(ans[0] == 'y' || ans[0] == 'Y')) continue;
         }
         if (install_from_registry(pkg, NULL, mirror.name) == 0) { upgraded++; }
-        else pmm_error("failed to upgrade %s\n", pkg);
+        else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
     }
 
     free(cfg.registry_url); free(cfg.mirror_name);
     free(mirror.name); free(mirror.api_base);
-    if (checked == 0) pmm_info("no installed .pdm packages.\n");
-    else pmm_success("upgraded %d package(s).\n", upgraded);
+    if (checked == 0) pmm_info("%s", pmm_tr("msg.no-installed"));
+    else pmm_success("%s", pmm_tr_fmt("msg.upgraded", upgraded));
     return 0;
 }
 
@@ -470,7 +470,7 @@ static int cmd_update(void) {
         pmm_error("bad registry index\n"); if (root) json_free(root); free(body); return 1;
     }
     int total = root->count, ok = 0;
-    if (total == 0) { pmm_info("registry index is empty.\n"); json_free(root); free(body); return 0; }
+    if (total == 0) { pmm_info("%s", pmm_tr("msg.registry-empty")); json_free(root); free(body); return 0; }
     save_registry_cache("packages.json", body);
     json_free(root);
 
@@ -491,7 +491,7 @@ static int cmd_update(void) {
         json_free(r2);
     }
     free(body);
-    pmm_success("updated registry index: %d/%d packages cached.\n", ok, total);
+    pmm_success("%s", pmm_tr_fmt("msg.registry-updated", ok, total));
     return 0;
 }
 
@@ -500,9 +500,9 @@ static int cmd_verify(int argc, char **argv) {
     if (argc < 1) { pmm_error("usage: pmm verify <file>\n"); return 1; }
     const char *file = argv[0];
     char hex[128];
-    if (pmm_sha256_file(file, hex) == 0) pmm_success("sha256  %s  %s\n", hex, file);
-    else { pmm_error("cannot read %s\n", file); return 1; }
-    if (pmm_sha1_file(file, hex) == 0) pmm_success("sha1    %s  %s\n", hex, file);
+    if (pmm_sha256_file(file, hex) == 0) pmm_success("%s", pmm_tr_fmt("msg.sha256", hex, file));
+    else { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-read", file)); return 1; }
+    if (pmm_sha1_file(file, hex) == 0) pmm_success("%s", pmm_tr_fmt("msg.sha1", hex, file));
     return 0;
 }
 
@@ -541,7 +541,7 @@ static void rm_tree(const char *dir) {
 static int cmd_cache_clean(void) {
     char dir[1024];
     pmm_cache_dir(dir, sizeof(dir));
-    pmm_info("cleaning cache %s\n", dir);
+    pmm_info("%s", pmm_tr_fmt("msg.cleaning-cache", dir));
     rm_tree(dir);
     return 0;
 }
@@ -564,7 +564,7 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
         if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
             host = host_from_name(argv[++i]);
             if (host == HOST_UNKNOWN) {
-                pmm_error("unknown host '%s'\n", argv[i]);
+                pmm_error("%s", pmm_tr_fmt("msg.err.unknown-host", argv[i]));
                 return 1;
             }
         } else if ((strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "--branch") == 0) && i + 1 < argc) {
@@ -598,8 +598,7 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
                 "(tried gitea/gitlab/github shapes)\n", repo);
     if (!asset) {
         if (host != HOST_AUTO)
-            pmm_error("no suitable %s asset found in latest release of %s\n",
-                    pmm_os_name(os), repo);
+            pmm_error("%s", pmm_tr_fmt("msg.no-suitable-asset", pmm_os_name(os)), repo);
         repo_close(ctx);
         return 1;
     }
@@ -614,7 +613,7 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
         if (sub) {
             ReleaseAsset *fb = repo_asset_matching(ctx, os, sub);
             if (fb && strcmp(fb->name, asset->name) != 0) {
-                pmm_warn("retrying with %s (%s)\n", fb->name, pmm_os_name(os));
+                pmm_warn("%s", pmm_tr_fmt("msg.retrying-asset", fb->name, pmm_os_name(os)));
                 rc = install_file(fb->url, fb->name);
                 repo_asset_free(fb);
             }
@@ -655,7 +654,7 @@ static int cmd_mirror(int argc, char **argv) {
      * (apt-style source check). Reports priority + ok/fail for each source. */
     if (strcmp(argv[0], "check") == 0) {
         Ini *ini = ini_load(path);
-        if (!ini || !ini->head) { pmm_error("no mirrors configured (use: pmm mirror add)\n"); ini_free(ini); return 1; }
+        if (!ini || !ini->head) { pmm_error("%s", pmm_tr("msg.err.no-mirror")); ini_free(ini); return 1; }
         printf("checking registry mirrors...\n");
         char lastsec[512] = "";
         int reachable = 0, total = 0;
@@ -689,10 +688,10 @@ static int cmd_mirror(int argc, char **argv) {
     }
     if (strcmp(argv[0], "add") == 0 && argc >= 3) {
         FILE *f = fopen(path, "a");
-        if (!f) { pmm_error("cannot write %s\n", path); return 1; }
+        if (!f) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", path)); return 1; }
         fprintf(f, "\n[%s]\napi = %s\n", argv[1], argv[2]);
         fclose(f);
-        pmm_success("mirror '%s' added\n", argv[1]);
+        pmm_success("%s", pmm_tr_fmt("msg.mirror-added", argv[1]));
         return 0;
     }
     if (strcmp(argv[0], "use") == 0 && argc >= 2) {
@@ -709,20 +708,20 @@ static int cmd_mirror(int argc, char **argv) {
             fclose(rf);
         }
         FILE *wf = fopen(cfgpath, "w");
-        if (!wf) { pmm_error("cannot write %s\n", cfgpath); return 1; }
+        if (!wf) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
         int wrote = 0;
         for (int i = 0; i < n; i++) fputs(lines[i], wf);
         fprintf(wf, "mirror = %s\n", argv[1]);
         (void)wrote;
         fclose(wf);
-        pmm_success("active mirror set to '%s'\n", argv[1]);
+        pmm_success("%s", pmm_tr_fmt("msg.mirror-active", argv[1]));
         return 0;
     }
     if (strcmp(argv[0], "remove") == 0 && argc >= 2) {
         Ini *ini = ini_load(path);
-        if (!ini) { pmm_error("no mirror file\n"); return 1; }
+        if (!ini) { pmm_error("%s", pmm_tr("msg.err.no-mirror-file")); return 1; }
         FILE *f = fopen(path, "w");
-        if (!f) { pmm_error("cannot write %s\n", path); ini_free(ini); return 1; }
+        if (!f) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", path)); ini_free(ini); return 1; }
         char cursec[512] = "";
         for (IniEntry *e = ini->head; e; e = e->next) {
             if (strcmp(e->section, cursec) != 0) {
@@ -735,48 +734,31 @@ static int cmd_mirror(int argc, char **argv) {
         }
         fclose(f);
         ini_free(ini);
-        pmm_success("mirror '%s' removed\n", argv[1]);
+        pmm_success("%s", pmm_tr_fmt("msg.mirror-removed", argv[1]));
         return 0;
     }
-    pmm_error("usage: pmm mirror list|add|use|remove|check ...\n");
+    pmm_error("%s", pmm_tr("msg.err.usage"));
     return 1;
 }
 
 static void print_help(void) {
     printf("PMM %s (%s)\n\n", PMM_VERSION, pmm_detect_arch());
-    printf("usage:\n");
-    printf("  pmm install <pkg>                     install from registry mirrors (apt-style)\n");
-    printf("  pmm install <file.pdm>                install a local .pdm package\n");
-    printf("  pmm install <pkg> [pkg2 ...]          install several packages\n");
-    printf("  pmm install <file.deb|file.msi|file.rpm|...>  install a local package file\n");
-    printf("  pmm install -dpkg <x.deb>             install a .deb (Linux)\n");
-    printf("  pmm install -msi <x.msi>              install an .msi (Windows)\n");
-    printf("  pmm install -rpm <x.rpm>              install an .rpm (any Linux, incl. Debian/RPM)\n");
-    printf("  pmm install <https://...>             install a file from a URL\n");
-    printf("  pmm search <keyword>                  list registry packages matching keyword\n");
-    printf("  pmm info <package|file.pdm>           registry/local package info\n");
-    printf("  pmm verify <file>                     print sha256/sha1 of a package file\n");
-    printf("  pmm pack <dir> [out.pdm]              pack a folder into a .pdm\n");
-    printf("  pmm list                              list installed packages\n");
-    printf("  pmm remove <pkg>                      uninstall a package\n");
-    printf("  pmm self-update                       update the pmm tool itself\n");
-    printf("  pmm update                            refresh the registry index (apt-style)\n");
-    printf("  pmm upgrade [--yes]                   upgrade all installed packages\n");
-    printf("  pmm install --git <repo-url.git>      any git host, API auto-detected\n");
-    printf("  pmm install --github <owner/repo>     GitHub latest release\n");
-    printf("  pmm install --gitlab <owner/repo>     GitLab latest release\n");
-    printf("  pmm install --gitea <url/owner/repo>  Gitea/Forgejo (incl. self-hosted)\n");
-    printf("       [--host github|gitlab|gitea|forgejo]\n");
-    printf("  pmm mirror list|add <n> <api>|use <n>|remove <n>|check\n");
-    printf("  pmm list                             list installed files\n");
-    printf("  pmm version | help\n\n");
-    printf("options:\n");
-    printf("  -p<drive>    install under <DRIVE>:\\\\.pmm (e.g. -pd -> D:\\\\.pmm, -pc -> C:\\\\.pmm)\n");
-    printf("               第一个 -p 会被记住，后续命令无需再写；用 -pc 切回 C 盘\n");
-    printf("  --no-color   omit ANSI colours even on a terminal (PMM_NO_COLOR=1 too)\n");
-    printf("  -q, --quiet  only print errors/warnings (suppress info/success)\n");
-    printf("  --verbose    print extra detail\n\n");
-    printf("config: <base>/pmm.json | pmm.ini | pmm.conf  (base = <drive>:\\\\.pmm 或 ~/.pmm)\n");
+    printf("%s\n", pmm_tr("help.usage"));
+    printf("  %-32s%s\n", "pmm install <pkg>        ", pmm_tr("desc.install"));
+    printf("  %-32s%s\n", "pmm search <keyword>     ", pmm_tr("desc.search"));
+    printf("  %-32s%s\n", "pmm info <pkg|file.pdm>  ", pmm_tr("desc.info"));
+    printf("  %-32s%s\n", "pmm remove <pkg>         ", pmm_tr("desc.remove"));
+    printf("  %-32s%s\n", "pmm update               ", pmm_tr("desc.update"));
+    printf("  %-32s%s\n", "pmm upgrade [--yes]      ", pmm_tr("desc.upgrade"));
+    printf("  %-32s%s\n", "pmm mirror ...           ", pmm_tr("desc.mirror"));
+    printf("  %-32s%s\n", "pmm self-update          ", pmm_tr("desc.self-update"));
+    printf("  %-32s%s\n", "pmm version | help       ", pmm_tr("desc.help"));
+    printf("\n%s\n", pmm_tr("help.options"));
+    printf("  %-32s%s\n", "-p<drive>  ", pmm_tr("opt.p-drive"));
+    printf("  %-32s%s\n", "--no-color ", pmm_tr("opt.no-color"));
+    printf("  %-32s%s\n", "-q, --quiet", pmm_tr("opt.quiet"));
+    printf("  %-32s%s\n", "--verbose  ", pmm_tr("opt.verbose"));
+    printf("\nconfig: <base>/pmm.json | pmm.ini | pmm.conf  (base = <drive>:\\\\.pmm 或 ~/.pmm)\n");
     printf("mirrors: <base>/mirror.ini | mirror.conf\n");
     printf("asset mapping: windows=exe/msi/zip/7z  linux=deb/rpm/appimage/tar.*  macos=dmg/pkg\n");
 }
@@ -791,7 +773,7 @@ static void mkdir_p_local(char *path) {
 /* pmm setting lang ... */
 static int cmd_setting(int argc, char **argv) {
     if (argc < 1 || strcmp(argv[0], "lang") != 0) {
-        pmm_error("usage: pmm setting lang -l | <locale>\n");
+        pmm_error("%s", pmm_tr("msg.err.usage"));
         return 1;
     }
     char dir[1024];
@@ -824,16 +806,16 @@ static int cmd_setting(int argc, char **argv) {
     }
 
     /* install / activate a specific locale: requires a value */
-    if (argc < 2) { pmm_error("usage: pmm setting lang <locale>\n"); return 1; }
+    if (argc < 2) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
     const char *loc = argv[1];
-    if (strchr(loc, '/') || strchr(loc, '\\') || strstr(loc, "..")) { pmm_error("invalid locale: %s\n", loc); return 1; }
+    if (strchr(loc, '/') || strchr(loc, '\\') || strstr(loc, "..")) { pmm_error("%s", pmm_tr_fmt("msg.err.invalid-locale", loc)); return 1; }
 
     /* pick a registry base for the language pack */
     MirrorList *ml = mirrors_load();
     const char *base = NULL;
     for (int i = 0; i < ml->count; i++)
         if (ml->items[i].registry && *ml->items[i].registry) { base = ml->items[i].registry; break; }
-    if (!base) { pmm_error("no registry mirror configured\n"); mirrors_free(ml); return 1; }
+    if (!base) { pmm_error("%s", pmm_tr("msg.err.no-registry-mirror")); mirrors_free(ml); return 1; }
 
     char url[2048];
     snprintf(url, sizeof(url), "%s/lang/%s.pjson", base, loc);
@@ -841,7 +823,7 @@ static int cmd_setting(int argc, char **argv) {
     char out[1400];
     snprintf(out, sizeof(out), "%s/%s.pjson", langdir, loc);
     if (http_download(url, out) != 0) {
-        pmm_error("failed to download language pack %s\n", loc);
+        pmm_error("%s", pmm_tr_fmt("msg.err.download-failed", loc));
         mirrors_free(ml); return 1;
     }
     mirrors_free(ml);
@@ -859,14 +841,14 @@ static int cmd_setting(int argc, char **argv) {
         fclose(rf);
     }
     FILE *wf = fopen(cfgpath, "w");
-    if (!wf) { pmm_error("cannot write %s\n", cfgpath); return 1; }
+    if (!wf) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
     for (int i = 0; i < nn; i++) fputs(lines[i], wf);
     fprintf(wf, "language = %s\n", loc);
     fclose(wf);
 
     pmm_lang_set_locale(loc);
     pmm_lang_load(out);
-    pmm_success("language set to '%s'\n", loc);
+    pmm_success("%s", pmm_tr_fmt("msg.lang-set", loc));
     return 0;
 }
 
@@ -978,7 +960,7 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "setting") == 0) return cmd_setting(argc - 2, argv + 2);
     /* pmm remove <pkg>  (also used by the Windows "Uninstall" registration) */
     if (strcmp(argv[1], "remove") == 0) {
-        if (argc < 3) { pmm_error("usage: pmm remove <pkg>\n"); return 1; }
+        if (argc < 3) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
         return pdm_remove(argv[2]) == 0 ? 0 : 1;
     }
     /* pmm self-update: install the latest 'pmm' tool package (auto os+arch) */
@@ -1060,7 +1042,7 @@ int main(int argc, char **argv) {
         }
         size_t la = strlen(pkg);
         if (la > 4 && (strcmp(pkg + la - 4, ".pdm") == 0 || strcmp(pkg + la - 4, ".PDM") == 0)) {
-            if (pdm_install_file(pkg) == 0) ok++; else pmm_error("failed to install %s\n", pkg);
+            if (pdm_install_file(pkg) == 0) ok++; else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
             continue;
         }
         /* direct URL install: pmm install https://.../foo.zip
@@ -1072,14 +1054,14 @@ int main(int argc, char **argv) {
             else if (forced == 2) bn = "download.msi";
             else if (forced == 3) bn = "download.rpm";
             if (install_file(pkg, bn) == 0) ok++;
-            else pmm_error("failed to install %s\n", pkg);
+            else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
             continue;
         }
         /* local file install: forced -dpkg/-msi, or an existing installer file
          * (e.g. `pmm install foo.deb` / `pmm install foo.msi`) */
         if (forced == 1 || forced == 2 || forced == 3 || has_installer_ext(pkg)) {
             if (install_local_file(pkg) == 0) ok++;
-            else pmm_error("failed to install %s\n", pkg);
+            else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
             continue;
         }
         if (install_from_registry(pkg, spec[0] ? spec : NULL, mirror.name) == 0) ok++;
@@ -1091,7 +1073,7 @@ int main(int argc, char **argv) {
 
     if (strcmp(argv[1], "pack") == 0) {
         if (argc < 3) {
-            pmm_error("usage: pmm pack <dir> [output.pdm]\n");
+            pmm_error("%s", pmm_tr("msg.err.usage"));
             return 1;
         }
         return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
@@ -1101,13 +1083,13 @@ int main(int argc, char **argv) {
         return cmd_search(argc - 2, argv + 2);
     if (strcmp(argv[1], "cache") == 0) {
         if (argc >= 3 && strcmp(argv[2], "clean") == 0) return cmd_cache_clean();
-        pmm_error("usage: pmm cache clean\n"); return 1;
+        pmm_error("%s", pmm_tr("msg.err.usage")); return 1;
     }
     if (strcmp(argv[1], "info") == 0)
         return cmd_info(argc - 2, argv + 2);
     if (strcmp(argv[1], "verify") == 0)
         return cmd_verify(argc - 2, argv + 2);
 
-    pmm_error("unknown command '%s' (try 'pmm help')\n", argv[1]);
+    pmm_error("%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[1]));
     return 1;
 }

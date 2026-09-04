@@ -1,6 +1,7 @@
 /* json.c - minimal recursive-descent JSON parser (no external deps) */
 #include "json.h"
 #include "out.h"
+#include "i18n.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@ static JsonValue *parse_value(Parser *ps);
 
 static JsonValue *jnew(JsonType t) {
     JsonValue *v = calloc(1, sizeof(JsonValue));
-    if (!v) { pmm_error("out of memory\n"); exit(1); }
+    if (!v) { pmm_error(pmm_tr("msg.err.oom")); exit(1); }
     v->type = t;
     return v;
 }
@@ -36,7 +37,7 @@ static void jadd(JsonValue *v, char *key, JsonValue *item) {
         if (v->type == JSON_OBJECT)
             v->keys = realloc(v->keys, v->capacity * sizeof(char *));
         if (!v->items || (v->type == JSON_OBJECT && !v->keys)) {
-            pmm_error("out of memory\n"); exit(1);
+            pmm_error(pmm_tr("msg.err.oom")); exit(1);
         }
     }
     if (v->type == JSON_OBJECT) v->keys[v->count] = key;
@@ -48,7 +49,7 @@ static void skip_ws(Parser *ps) {
 }
 
 static void fail(const char *msg) {
-    pmm_error("JSON parse error: %s\n", msg);
+    pmm_error("%s", pmm_tr_fmt("msg.err.json-parse", msg));
     exit(1);
 }
 
