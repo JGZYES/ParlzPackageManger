@@ -313,8 +313,14 @@ static void installed_version(const char *info, char *pkg, size_t pkgsz, char *v
  * and offer to upgrade. With --yes, upgrade without prompting. */
 static int cmd_upgrade(int argc, char **argv) {
     int yes = 0;
-    for (int i = 0; i < argc; i++)
-        if (strcmp(argv[i], "--yes") == 0 || strcmp(argv[i], "-y") == 0) yes = 1;
+    for (int i = 0; i < argc; i++) {
+        const char *a = argv[i];
+        if (strcmp(a, "--yes") == 0) { yes = 1; continue; }
+        /* a short flag cluster (-y, -qy, -yq): any 'y' means yes */
+        if (a[0] == '-' && a[1] && a[1] != '-') {
+            for (const char *p = a + 1; *p; p++) if (*p == 'y') { yes = 1; break; }
+        }
+    }
 
     char home[1024];
     pmm_config_dir(home, sizeof(home));
@@ -614,6 +620,42 @@ static int cmd_mirror(int argc, char **argv) {
         ini_free(ini);
         return 0;
     }
+    /* pmm mirror check — probe each configured registry mirror's reachability
+     * (apt-style source check). Reports priority + ok/fail for each source. */
+    if (strcmp(argv[0], "check") == 0) {
+        Ini *ini = ini_load(path);
+        if (!ini || !ini->head) { pmm_error("no mirrors configured (use: pmm mirror add)\n"); ini_free(ini); return 1; }
+        printf("checking registry mirrors...\n");
+        char lastsec[512] = "";
+        int reachable = 0, total = 0;
+        for (IniEntry *e = ini->head; e; e = e->next) {
+            if (!*e->section) continue;
+            if (strcmp(e->section, lastsec) == 0) continue;
+            strncpy(lastsec, e->section, sizeof(lastsec) - 1);
+            const char *reg = ini_get(ini, e->section, "registry");
+            const char *pri = ini_get(ini, e->section, "priority");
+            const char *dflt = ini_get(ini, e->section, "default");
+            if (!reg || !*reg) continue;   /* source without a registry isn't probeable */
+            total++;
+            char url[2048];
+            snprintf(url, sizeof(url), "%s/packages.json", reg);
+            /* probe with a short GET; capture status code */
+            int st = 0;
+            char *body = http_get(url, &st);
+            int ok = (body && st != 404 && st != 403 && st != 503 && st != 0);
+            free(body);
+            const char *stext = ok ? "ok"    :
+                                (st == 404) ? "not found" :
+                                (st == 0)   ? "unreachable" : "HTTP %d";
+            printf("  [%s] pri=%s %s%s   %s\n", e->section,
+                   pri ? pri : "-", reg, dflt && strcmp(dflt,"true")==0 ? " (default)" : "",
+                   ok ? "OK" : stext);
+            if (ok) reachable++;
+        }
+        ini_free(ini);
+        printf("result: %d/%d sources reachable\n", reachable, total);
+        return reachable > 0 ? 0 : 1;
+    }
     if (strcmp(argv[0], "add") == 0 && argc >= 3) {
         FILE *f = fopen(path, "a");
         if (!f) { pmm_error("cannot write %s\n", path); return 1; }
@@ -665,7 +707,7 @@ static int cmd_mirror(int argc, char **argv) {
         pmm_success("mirror '%s' removed\n", argv[1]);
         return 0;
     }
-    pmm_error("usage: pmm mirror list|add|use|remove ...\n");
+    pmm_error("usage: pmm mirror list|add|use|remove|check ...\n");
     return 1;
 }
 
@@ -694,7 +736,7 @@ static void print_help(void) {
     printf("  pmm install --gitlab <owner/repo>     GitLab latest release\n");
     printf("  pmm install --gitea <url/owner/repo>  Gitea/Forgejo (incl. self-hosted)\n");
     printf("       [--host github|gitlab|gitea|forgejo]\n");
-    printf("  pmm mirror list|add <n> <api>|use <n>|remove <n>\n");
+    printf("  pmm mirror list|add <n> <api>|use <n>|remove <n>|check\n");
     printf("  pmm list                             list installed files\n");
     printf("  pmm version | help\n\n");
     printf("options:\n");
@@ -745,6 +787,22 @@ static int consume_global_flags(int argc, char **argv) {
     int w = 1;
     for (int r = 1; r < argc; r++) {
         const char *a = argv[r];
+        /* A combined short flag cluster (e.g. -yq / -qy): consume the global
+         * chars (q=quiet, v=verbose); keep any non-global chars (e.g. y=yes)
+         * as a fresh "-y" token for the subcommand. */
+        if (a[0] == '-' && a[1] && a[1] != '-' && a[2]) {
+            char keep[64]; int ki = 0;
+            for (const char *p = a + 1; *p && ki < 62; p++) {
+                if (*p == 'q') { pmm_log_level = 1; continue; }
+                if (*p == 'v') { pmm_log_level = 2; continue; }
+                keep[ki++] = *p;
+            }
+            if (ki > 0) {
+                char buf[64]; buf[0] = '-'; memcpy(buf + 1, keep, ki); buf[ki + 1] = '\0';
+                argv[w++] = strdup(buf);
+            }
+            continue;
+        }
         if (strcmp(a, "--no-color") == 0) { pmm_no_color = 1; continue; }
         if (strcmp(a, "-q") == 0 || strcmp(a, "--quiet") == 0) { pmm_log_level = 1; continue; }
         if (strcmp(a, "--verbose") == 0) { pmm_log_level = 2; continue; }
