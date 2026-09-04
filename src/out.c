@@ -21,6 +21,12 @@ static void pmmsg(FILE *stream, int fd, const char *level, int wrap_color, const
     char buf[4096];
     vsnprintf(buf, sizeof(buf), fmt, ap);
 
+    /* Trim any trailing newline(s) from the formatted message — many source
+     * calls end their format with "\n", and we add exactly one below. Without
+     * this, "[PMM]:[INFO]msg\n" would print a blank line after every message. */
+    size_t len = strlen(buf);
+    while (len && (buf[len-1] == '\n' || buf[len-1] == '\r')) buf[--len] = '\0';
+
     int tty = IS_TTY_FD(fd);
     if (tty && wrap_color)
         fprintf(stream, "\033[%dm[PMM]:[%s]%s\033[0m\n", wrap_color, level, buf);
