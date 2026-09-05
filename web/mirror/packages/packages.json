@@ -1,7 +1,11 @@
 [
+  "apache",
+  "docker",
+  "docker-ce",
   "eza",
   "fzf",
   "git",
+  "nginx",
   "nodejs",
   "pcl2",
   "php",

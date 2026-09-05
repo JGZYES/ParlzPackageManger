@@ -1,0 +1,29 @@
+{
+  "name": "nginx",
+  "version": "1.30.4",
+  "os": "linux",
+  "arch": "amd64",
+  "description": "nginx - high-performance HTTP server",
+  "variants": [
+    {
+      "name": "nginx",
+      "version": "1.30.4",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "1.30.4-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/nginx/1.30.4-linux-amd64.pdm",
+      "sha256": "55d74fbf3e44c9f08c072a69161345f60c2377a4da644837d4808b7537c489ca",
+      "description": "nginx 1.30.4 (linux amd64, needs system glibc/ssl/pcre)"
+    },
+    {
+      "name": "nginx",
+      "version": "1.30.4",
+      "os": "linux",
+      "arch": "aarch64",
+      "file": "1.30.4-linux-aarch64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/nginx/1.30.4-linux-aarch64.pdm",
+      "sha256": "5c796b229e3777f51e457d13468ff8eb450bf6ab63ef268bba1141b8c9f40b8e",
+      "description": "nginx 1.30.4 (linux aarch64)"
+    }
+  ]
+}
