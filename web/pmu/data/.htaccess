@@ -1,0 +1,2 @@
+# deny direct access to web/pmu/data (user accounts / tokens / verify state)
+Require all denied

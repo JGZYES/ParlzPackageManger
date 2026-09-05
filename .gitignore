@@ -36,3 +36,7 @@
 web/.src/
 web/git/
 web/releases/
+
+# pmu upload service runtime state (accounts / sessions)
+web/pmu/data/*.json
+web/pmu/data/*.tmp
