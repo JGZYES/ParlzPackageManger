@@ -16,6 +16,7 @@ $GLOBALS['docs_order'] = [
     'download'  => 30,
     'features'  => 40,
     'cli'       => 50,
+    'pack'      => 55,
     'mirror'    => 60,
     'translate' => 70,
     'source'    => 80,
