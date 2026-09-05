@@ -4,7 +4,7 @@
  * then pmm_header($active,$title); ... pmm_footer(); */
 if (!defined('PMM_SITE')) { http_response_code(403); exit('forbidden'); }
 
-define('PMM_VERSION', '0.3.7');
+define('PMM_VERSION', '0.3.8');
 
 function pmm_nav_links(string $active): string {
     $items = [
