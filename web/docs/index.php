@@ -39,6 +39,37 @@ if (is_file($mdPath)) {
 
 pmm_header('docs', '文档 · ' . $title);
 ?>
+<style>
+/* docs layout — inline so it works regardless of external style.css state */
+.docs-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;max-width:1160px;margin:0 auto;padding:28px 22px 60px;align-items:start}
+.docs-sidebar{position:sticky;top:14px;min-width:0;border-right:1px solid #282828;padding-right:16px}
+.docs-sidebar-brand{font-weight:700;font-size:15px;color:#fff;padding:0 4px 12px;border-bottom:1px solid #282828;margin-bottom:8px}
+.docs-group{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#555;padding:14px 6px 6px}
+.docs-tree{display:block}
+.docs-tree a.docs-link{display:block;font-size:14px;color:#9a9a9a;text-decoration:none;padding:7px 10px;border-radius:7px;margin:0}
+.docs-tree a.docs-link:hover{color:#fff;background:#101010}
+.docs-tree a.docs-link.active{color:#000;background:#f2f2f2}
+.docs-content{min-width:0}
+.docs-crumb{font-size:12px;color:#555;margin-bottom:18px}
+.docs-body{max-width:820px;line-height:1.85;color:#ededed;font-size:15px}
+.docs-body h1{font-size:30px;margin:0 0 18px;color:#fff;border-bottom:1px solid #282828;padding-bottom:14px}
+.docs-body h2{font-size:21px;margin:36px 0 12px;color:#fff}
+.docs-body h3{font-size:17px;margin:26px 0 10px;color:#fff}
+.docs-body p{margin:0 0 14px}
+.docs-body ul,.docs-body ol{padding-left:22px;margin:0 0 14px}
+.docs-body li{margin:5px 0}
+.docs-body a{color:#fff;text-decoration:underline}
+.docs-body a:hover{color:#f2f2f2}
+.docs-body strong{color:#fff}
+.docs-body code{background:#101010;border:1px solid #282828;padding:1px 6px;border-radius:5px;font-size:13px;font-family:ui-monospace,monospace;color:#9a9a9a}
+.docs-body pre.mdcode{background:#101010;border:1px solid #282828;border-radius:10px;padding:14px 16px;overflow:auto;margin:0 0 14px}
+.docs-body pre.mdcode code{background:none;border:0;padding:0;color:#ededed;font-size:13px;line-height:1.6;display:block}
+.docs-body hr{border:0;border-top:1px solid #282828;margin:22px 0}
+.docs-body table{border-collapse:collapse;width:100%;margin:0 0 16px}
+.docs-body th,.docs-body td{border:1px solid #282828;padding:8px 12px;font-size:13px;text-align:left}
+.docs-body th{background:#101010;color:#fff}
+@media(max-width:840px){.docs-layout{grid-template-columns:1fr}.docs-sidebar{position:static;border-right:0;padding-right:0}}
+</style>
 <section class="docs-layout">
   <aside class="docs-sidebar">
     <div class="docs-sidebar-brand"><span>PMM 文档</span></div>
