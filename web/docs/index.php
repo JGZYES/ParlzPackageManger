@@ -8,6 +8,19 @@ require dirname(__DIR__) . '/_common.php';
 $mdDir = __DIR__ . '/md';
 $page  = isset($_GET['page']) ? (string)$_GET['page'] : 'index';
 
+/* Mapping used to ORDER the tree entries (slug => order index). Not required to
+ * list every file; anything not mapped is appended alphabetically after them. */
+$GLOBALS['docs_order'] = [
+    'index'     => 10,
+    'install'   => 20,
+    'download'  => 30,
+    'features'  => 40,
+    'cli'       => 50,
+    'mirror'    => 60,
+    'translate' => 70,
+    'source'    => 80,
+];
+
 /* Recursively render the tree under `dir` (relative to mdDir). */
 function render_tree(string $dir, string $rel): string {
     $html = '';
@@ -20,7 +33,17 @@ function render_tree(string $dir, string $rel): string {
         if (is_dir($full)) $folders[] = $it;
         elseif (substr($it, -3) === '.md') $files[] = $it;
     }
-    sort($folders); sort($files);
+    /* sort files by the order map (by slug), unmapped later, then by name */
+    $order = &$GLOBALS['docs_order'];
+    usort($files, function ($a, $b) use ($order, $rel) {
+        $sa = $rel === '' ? basename($a, '.md') : $rel . '/' . basename($a, '.md');
+        $sb = $rel === '' ? basename($b, '.md') : $rel . '/' . basename($b, '.md');
+        $oa = $order[$sa] ?? 1000;
+        $ob = $order[$sb] ?? 1000;
+        if ($oa !== $ob) return $oa - $ob;
+        return strcmp($sa, $sb);
+    });
+    sort($folders);
     foreach ($folders as $f) {
         $childRel = $rel === '' ? $f : $rel . '/' . $f;
         $html .= '<details class="docs-folder"><summary class="docs-folder-name">📁 ' .
@@ -85,8 +108,8 @@ pmm_header('docs', '文档 · ' . $title);
 .docs-body a{color:#fff;text-decoration:underline}
 .docs-body a:hover{color:#f2f2f2}
 .docs-body strong{color:#fff}
-.docs-body code{background:#101010;border:1px solid #282828;padding:1px 6px;border-radius:5px;font-size:13px;font-family:ui-monospace,monospace;color:#9a9a9a}
-.docs-body pre.mdcode{background:#101010;border:1px solid #282828;border-radius:10px;padding:14px 16px;overflow:auto;margin:0 0 14px}
+.docs-body code{background:#101010;padding:1px 6px;border-radius:4px;font-size:13px;font-family:ui-monospace,monospace;color:#9a9a9a}
+.docs-body pre.mdcode{background:#101010;padding:14px 16px;overflow:auto;margin:0 0 14px}
 .docs-body pre.mdcode code{background:none;border:0;padding:0;color:#ededed;font-size:13px;line-height:1.6;display:block}
 .docs-body hr{border:0;border-top:1px solid #282828;margin:22px 0}
 .docs-body table{border-collapse:collapse;width:100%;margin:0 0 16px}
