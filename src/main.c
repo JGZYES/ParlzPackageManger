@@ -927,34 +927,30 @@ static int cmd_setting(int argc, char **argv) {
     const char *loc = argv[1];
     if (strchr(loc, '/') || strchr(loc, '\\') || strstr(loc, "..")) { pmm_error("%s", pmm_tr_fmt("msg.err.invalid-locale", loc)); return 1; }
 
-    /* pick a registry base for the language pack */
+    /* Try every registry mirror in priority order; a pack may only be reachable
+     * on a secondary mirror. Language packs live under {host}/mirror/lang/, NOT
+     * the registry base {host}/mirror/packages, so swap the trailing "/packages"
+     * (if present) for "/lang". */
     MirrorList *ml = mirrors_load();
-    const char *base = NULL;
-    for (int i = 0; i < ml->count; i++)
-        if (ml->items[i].registry && *ml->items[i].registry) { base = ml->items[i].registry; break; }
-    if (!base) { pmm_error("%s", pmm_tr("msg.err.no-registry-mirror")); mirrors_free(ml); return 1; }
-
-    /* Language packs live under {host}/mirror/lang/, NOT under the registry
-     * base {host}/mirror/packages. Derive it by swapping the trailing
-     * "/packages" (if present) for "/lang". */
-    char base2[2048];
-    snprintf(base2, sizeof(base2), "%s", base);
-    {
-        size_t bl = strlen(base2);
-        static const char *pkgsuf = "/packages";
-        size_t pl = strlen(pkgsuf);
-        if (bl >= pl && strcmp(base2 + bl - pl, pkgsuf) == 0) {
-            strcpy(base2 + bl - pl, "/lang");   /* .../mirror/packages -> .../mirror/lang */
-        } else {
-            snprintf(base2 + bl, sizeof(base2) - bl, "/lang");
-        }
-    }
-    char url[2048];
-    snprintf(url, sizeof(url), "%s/%s.pjson", base2, loc);
     mkdir_p_local(langdir);
     char out[1400];
     snprintf(out, sizeof(out), "%s/%s.pjson", langdir, loc);
-    if (http_download(url, out) != 0) {
+    char url[2048], base2[2048];
+    int got = 0;
+    for (int i = 0; i < ml->count; i++) {
+        if (!ml->items[i].registry || !*ml->items[i].registry) continue;
+        snprintf(base2, sizeof(base2), "%s", ml->items[i].registry);
+        size_t bl = strlen(base2);
+        static const char *pkgsuf = "/packages";
+        size_t pl = strlen(pkgsuf);
+        if (bl >= pl && strcmp(base2 + bl - pl, pkgsuf) == 0)
+            strcpy(base2 + bl - pl, "/lang");   /* .../mirror/packages -> .../mirror/lang */
+        else
+            snprintf(base2 + bl, sizeof(base2) - bl, "/lang");
+        snprintf(url, sizeof(url), "%s/%s.pjson", base2, loc);
+        if (http_download(url, out) == 0) { got = 1; break; }
+    }
+    if (!got) {
         pmm_error("%s", pmm_tr_fmt("msg.err.download-failed", loc));
         mirrors_free(ml); return 1;
     }
