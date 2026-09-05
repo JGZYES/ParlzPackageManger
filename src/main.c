@@ -828,7 +828,7 @@ static void clean_rm(const char *path) {
             } else {
                 ULONGLONG sz = ((ULONGLONG)fd.nFileSizeHigh << 32) | fd.nFileSizeLow;
                 g_clean_size += (unsigned long long)sz; g_clean_count++;
-                RemoveFileA(full);
+                DeleteFileA(full);
             }
         } while (FindNextFileA(h, &fd));
         FindClose(h);
