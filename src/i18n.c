@@ -43,13 +43,39 @@ int pmm_lang_load(const char *path) {
     return 0;
 }
 
+/* Built-in fallback so PMM is usable even before any .pjson is installed. */
+static const char *kBuiltinZh =
+"{\"help.usage\":\"用法:\",\"help.commands\":\"命令:\",\"help.options\":\"选项:\","
+"\"cmd.install\":\"install\",\"cmd.remove\":\"remove\",\"cmd.update\":\"update\","
+"\"cmd.upgrade\":\"upgrade\",\"cmd.mirror\":\"mirror\",\"cmd.search\":\"search\","
+"\"msg.looking-up\":\"在镜像 %s 中查找 %s\",\"msg.selected\":\"已选择 %s@%s (os=%s arch=%s)\","
+"\"msg.downloading\":\"下载 %s\",\"msg.downloaded\":\"已下载 %s\","
+"\"msg.hash-sha256\":\"sha256: %s\",\"msg.hash-sha1\":\"sha1: %s\","
+"\"msg.installing\":\"正在安装 %s ...\",\"msg.installed\":\"已安装 %s\","
+"\"msg.checksum-ok\":\"%s 校验 OK: %s\",\"msg.checksum-mismatch\":\"校验不匹配 (%s)!\","
+"\"msg.resolving-dep\":\"正在解析依赖 %s\",\"msg.registry-ok\":\"注册表 sha256 OK: %s\","
+"\"msg.path-exists\":\"PATH 已包含 PMM 目录\",\"msg.err.registry-not-found\":\"找不到软件包 '%s'\","
+"\"msg.err.usage\":\"用法\",\"msg.err.unknown-cmd\":\"未知命令 '%s' (试试 'pmm help')\","
+"\"msg.err.download-failed\":\"下载语言包 %s 失败\",\"msg.err.invalid-locale\":\"无效语言 %s\","
+"\"msg.err.not-found\":\"找不到软件包 '%s'\",\"msg.err.failed-install\":\"安装 %s 失败\","
+"\"msg.err.no-registry-mirror\":\"没有配置注册表镜像\",\"msg.err.cannot-write\":\"无法写入 %s\","
+"\"desc.install\":\"安装\",\"desc.remove\":\"卸载\",\"desc.update\":\"刷新索引\","
+"\"desc.upgrade\":\"升级\",\"desc.mirror\":\"镜像源\",\"desc.search\":\"搜索\","
+"\"desc.info\":\"详情\",\"desc.self-update\":\"更新自身\",\"desc.help\":\"帮助\","
+"\"opt.p-drive\":\"安装盘符\",\"opt.no-color\":\"禁用颜色\",\"opt.quiet\":\"静默\","
+"\"opt.verbose\":\"详情\"}";
+
 int pmm_lang_load_active(void) {
     char dir[1024];
     pmm_config_dir(dir, sizeof(dir));
     char path[1400];
     snprintf(path, sizeof(path), "%s/lang/%s.pjson", dir, pmm_lang_locale());
     if (pmm_lang_load(path) == 0) return 0;
-    return 1;   /* no pack on disk */
+    /* No pack on disk: fall back to the built-in zh-CN so output is readable
+     * instead of printing raw keys (msg.xxx). */
+    JsonValue *root = json_parse(kBuiltinZh);
+    if (root) { if (g_lang) json_free(g_lang); g_lang = root; return 0; }
+    return 1;
 }
 
 const char *pmm_tr(const char *key) {

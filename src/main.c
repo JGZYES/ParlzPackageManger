@@ -934,8 +934,23 @@ static int cmd_setting(int argc, char **argv) {
         if (ml->items[i].registry && *ml->items[i].registry) { base = ml->items[i].registry; break; }
     if (!base) { pmm_error("%s", pmm_tr("msg.err.no-registry-mirror")); mirrors_free(ml); return 1; }
 
+    /* Language packs live under {host}/mirror/lang/, NOT under the registry
+     * base {host}/mirror/packages. Derive it by swapping the trailing
+     * "/packages" (if present) for "/lang". */
+    char base2[2048];
+    snprintf(base2, sizeof(base2), "%s", base);
+    {
+        size_t bl = strlen(base2);
+        static const char *pkgsuf = "/packages";
+        size_t pl = strlen(pkgsuf);
+        if (bl >= pl && strcmp(base2 + bl - pl, pkgsuf) == 0) {
+            strcpy(base2 + bl - pl, "/lang");   /* .../mirror/packages -> .../mirror/lang */
+        } else {
+            snprintf(base2 + bl, sizeof(base2) - bl, "/lang");
+        }
+    }
     char url[2048];
-    snprintf(url, sizeof(url), "%s/lang/%s.pjson", base, loc);
+    snprintf(url, sizeof(url), "%s/%s.pjson", base2, loc);
     mkdir_p_local(langdir);
     char out[1400];
     snprintf(out, sizeof(out), "%s/%s.pjson", langdir, loc);
@@ -1049,19 +1064,20 @@ int main(int argc, char **argv) {
         }
     }
 #endif
-    if (argc < 2) { print_help(); return 0; }
-    pmm_set_self_path(argv[0]);
-    argc = consume_drive_flag(argc, argv);
-    argc = consume_global_flags(argc, argv);
-    if (argc < 2) { print_help(); return 0; }
 
-    /* initialise i18n: use configured language (if any), then load its pack */
+    /* initialise i18n BEFORE any output (so `pmm` bare help is localized too).
+     * Use the configured language (if any), then load its pack (or built-in). */
     {
         PmmConfig cfg; load_config(&cfg);
         if (cfg.language && *cfg.language) pmm_lang_set_locale(cfg.language);
         free(cfg.registry_url); free(cfg.mirror_name); free(cfg.language);
         pmm_lang_load_active();
     }
+    if (argc < 2) { print_help(); return 0; }
+    pmm_set_self_path(argv[0]);
+    argc = consume_drive_flag(argc, argv);
+    argc = consume_global_flags(argc, argv);
+    if (argc < 2) { print_help(); return 0; }
 
     if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
         print_help(); return 0;
