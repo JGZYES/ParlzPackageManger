@@ -8,8 +8,8 @@ define('PMM_VERSION', '0.3.6');
 
 function pmm_nav_links(string $active): string {
     $items = [
-        'home'    => ['index.php',       '首页'],
-        'docs'    => ['docs/index.php',  '文档'],
+        'home'    => ['/index.php',       '首页'],
+        'docs'    => ['/docs/index.php',  '文档'],
     ];
     $html = '';
     foreach ($items as $key => [$href, $label]) {
@@ -43,13 +43,13 @@ function pmm_header(string $active, string $title): void {
 '<meta name="viewport" content="width=device-width, initial-scale=1.0">' . "\n" .
 '<title>' . $t . ' · ParlzPackageManager</title>' . "\n" .
 '<meta name="description" content="ParlzPackageManager (PMM) — 用 C 语言编写、跨 Windows/Linux/macOS 的包管理器。">' . "\n" .
-'<link rel="icon" href="icon.png">' . "\n" .
-'<link rel="apple-touch-icon" href="icon.png">' . "\n" .
-'<link rel="stylesheet" href="assets/style.css">' . "\n" .
+'<link rel="icon" href="/icon.png">' . "\n" .
+'<link rel="apple-touch-icon" href="/icon.png">' . "\n" .
+'<link rel="stylesheet" href="/assets/style.css">' . "\n" .
 '</head>' . "\n" .
 '<body>' . "\n" .
 '<nav class="nav">' . "\n" .
-'  <a class="brand" href="index.php"><img class="brand-img" src="icon.png" alt="PMM"><span class="brand-name">ParlzPackageManager</span></a>' . "\n" .
+'  <a class="brand" href="/index.php"><img class="brand-img" src="/icon.png" alt="PMM"><span class="brand-name">ParlzPackageManager</span></a>' . "\n" .
 '  <ul class="nav-links">' . "\n" .
 '    ' . pmm_nav_links($active) . "\n" .
 '    <li><a class="btn btn-sm" href="https://github.com/JGZYES/ParlzPackageManger" target="_blank" rel="noopener">GitHub ↗</a></li>' . "\n" .
@@ -76,6 +76,6 @@ function pmm_footer(): void {
          '  </div>' . "\n" .
          '  <p class="footer-note">© 2026 ParlzPackageManager Project · 深圳 sz.pmm.parlz.com · 香港 pmm.parlz.com</p>' . "\n" .
          '</div></footer>' . "\n" .
-         '<script src="assets/main.js"></script>' . "\n" .
+         '<script src="/assets/main.js"></script>' . "\n" .
          '</body>' . "\n" . '</html>';
 }
