@@ -8,6 +8,7 @@
 #include <stdarg.h>
 
 static JsonValue *g_lang = NULL;
+static JsonValue *g_builtin = NULL;
 static char g_locale[64] = "";
 
 /* Detect locale from LANG / LC_ALL env, else default "zh-CN". */
@@ -80,9 +81,18 @@ int pmm_lang_load_active(void) {
 }
 
 const char *pmm_tr(const char *key) {
-    if (!g_lang) return key;
-    const char *t = json_str(g_lang, key);
-    return t ? t : key;
+    /* Look up in the loaded pack first, then fall back to the built-in zh-CN
+     * table so a stale .pjson never shows a raw "msg.xxx" key. */
+    if (g_lang) {
+        const char *t = json_str(g_lang, key);
+        if (t) return t;
+    }
+    if (!g_builtin) g_builtin = json_parse(kBuiltinZh);
+    if (g_builtin) {
+        const char *b = json_str(g_builtin, key);
+        if (b) return b;
+    }
+    return key;
 }
 
 const char *pmm_tr_fmt(const char *key, ...) {

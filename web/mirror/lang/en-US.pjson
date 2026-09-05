@@ -123,5 +123,10 @@
   "mirror.sources": "mirrors:",
   "mirror.checking": "checking registry mirrors...",
   "mirror.result": "result: %d/%d sources reachable",
-  "lang.packs-in": "language packs in %s:"
+  "lang.packs-in": "language packs in %s:",
+  "desc.clean": "clean cache",
+  "msg.dep-satisfied": "dependency %s%s%s already installed/provided, skipped",
+  "msg.err.conflict": "cannot install %s: conflicts with installed %s",
+  "msg.cache-cleared": "cache cleaned: %d files, freed %.1f KB",
+  "msg.self-up-to-date": "already up to date (v%s, latest v%s), skipping upgrade"
 }
