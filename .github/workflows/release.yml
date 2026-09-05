@@ -24,10 +24,20 @@ jobs:
             cc: x86_64-w64-mingw32-gcc
             ext: .exe
             pkg: mingw-w64
+            bin: pmm.exe
+            arch: windows-amd64
           - target: linux-amd64
             cc: gcc
             ext: ''
             pkg: ''
+            bin: pmm
+            arch: amd64
+          - target: linux-aarch64
+            cc: aarch64-linux-gnu-gcc
+            ext: ''
+            pkg: gcc-aarch64-linux-gnu
+            bin: pmm-aarch64
+            arch: aarch64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +53,7 @@ jobs:
           mkdir -p out
           VER=${{ github.ref_type == 'tag' && github.ref_name || (github.event.inputs.version != '' && github.event.inputs.version || 'dev') }}
           VER=${VER#v}
-          ${{ matrix.cc }} -O2 -Wall -static -std=c11 -D_FORTIFY_SOURCE=0 -U_FORTIFY_SOURCE -DPMM_VERSION=\"$VER\" -o out/pmm${{ matrix.ext }} \
+          ${{ matrix.cc }} -O2 -Wall -static -std=c11 -D_FORTIFY_SOURCE=0 -U_FORTIFY_SOURCE -DPMM_VERSION=\"$VER\" -o out/${{ matrix.bin }} \
             src/main.c src/json.c src/ini.c src/pmm.c src/http.c src/repo.c src/install.c \
             src/sha256.c src/sha1.c src/mirrors.c src/pdm.c src/out.c src/i18n.c
 
@@ -56,6 +66,24 @@ jobs:
 
           # -- install.sh helper (uploaded to the release, also served at /install.sh)
           cp web/install.sh out/install.sh
+
+          # -- aarch64: a .pdm (pure tar, no pmm needed) for Linux ARM64
+          if [ -f out/pmm-aarch64 ]; then
+            rm -rf pdm && mkdir -p pdm/meta pdm/data/usr/local/bin
+            cp out/pmm-aarch64 pdm/data/usr/local/bin/pmm
+            {
+              echo "Package: pmm"
+              echo "Version: $VER"
+              echo "Architecture: linux"
+              echo "Description: PMM package manager"
+              echo "Maintainer: PMM <packages@pmm.dev>"
+            } > pdm/meta/pdm-control
+            ( cd pdm/meta && tar -czf ../control.tar.gz pdm-control )
+            ( cd pdm/data && tar -czf ../data.tar.gz . )
+            ( cd pdm && sha256sum control.tar.gz data.tar.gz > sha256sums )
+            ( cd pdm && tar -cf ../out/pmm-${VER}-linux-aarch64.pdm control.tar.gz data.tar.gz sha256sums )
+            rm -rf pdm
+          fi
 
           # -- Windows: ZIP
           if [ -f out/pmm.exe ]; then
