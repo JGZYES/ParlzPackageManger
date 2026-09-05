@@ -50,6 +50,12 @@ if (is_file($f)) {
 $title = $page;
 if ($body !== '' && preg_match('/^#\s+(.+)$/m', str_replace('<', '', $body), $m)) $title = trim(strip_tags($m[1]));
 
+if (isset($_GET['ajax'])) {   /* partial response for AJAX nav (no layout) */
+    echo '<div class="docs-crumb">文档 / ' . htmlspecialchars($title) . '</div>';
+    echo '<div class="docs-body" id="docs-body">' . $body . '</div>';
+    exit;
+}
+
 pmm_header('docs', '文档 · ' . $title);
 ?>
 <style>
@@ -95,7 +101,49 @@ pmm_header('docs', '文档 · ' . $title);
   </aside>
   <div class="docs-content">
     <div class="docs-crumb">文档 / <?php echo htmlspecialchars($title); ?></div>
-    <div class="docs-body"><?php echo $body; ?></div>
+    <div class="docs-body" id="docs-body"><?php echo $body; ?></div>
   </div>
 </section>
+<script>
+(function () {
+  var body = document.getElementById('docs-body');
+  var content = document.querySelector('.docs-content');
+  var crumb = document.querySelector('.docs-crumb');
+  if (!body) return;
+
+  // Intercept tree links: fetch the partial (ajax=1) and swap the content area.
+  document.querySelectorAll('.docs-tree a.docs-link').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var url = a.getAttribute('href');
+      var m = url.match(/[?&]page=([^&]+)/);
+      var page = m ? decodeURIComponent(m[1]) : '';
+      document.querySelectorAll('.docs-tree a.docs-link').forEach(function (x) { x.classList.remove('active'); });
+      a.classList.add('active');
+      fetch('index.php?ajax=1&page=' + encodeURIComponent(page), { cache: 'no-store' })
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+          content.innerHTML = html;   // includes .docs-crumb + .docs-body
+          body = content.querySelector('#docs-body');
+          crumb = content.querySelector('.docs-crumb');
+          content.querySelectorAll('.docs-body a').forEach(function (x) {
+            // internal doc links also AJAX-swap
+          });
+          window.scrollTo(0, 0);
+          if (history && history.pushState) history.pushState({ page: page }, '', 'index.php?page=' + encodeURIComponent(page));
+        });
+    });
+  });
+  window.addEventListener('popstate', function (e) {
+    var p = (e.state && e.state.page) ? e.state.page : 'index';
+    fetch('index.php?ajax=1&page=' + encodeURIComponent(p), { cache: 'no-store' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        content.innerHTML = html;
+        body = content.querySelector('#docs-body');
+        crumb = content.querySelector('.docs-crumb');
+      });
+  });
+})();
+</script>
 <?php pmm_footer(); ?>
