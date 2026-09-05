@@ -911,9 +911,136 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
     return rc;
 }
 
+/* ---------- installed-package DB queries (dependency solving) ---------- */
+
+/* Extract the first value of `key` from a control/.info text buffer. Returns a
+ * malloc'd copy or NULL. Multi-value fields (Depends/Provides/Conflicts) are
+ * returned as their single comma-separated line. */
+static char *ctl_field(const char *ctl, const char *key) {
+    size_t klen = strlen(key);
+    const char *line = ctl;
+    while (line && *line) {
+        const char *eol = strchr(line, '\n');
+        size_t ll = eol ? (size_t)(eol - line) : strlen(line);
+        if (ll > klen && strncasecmp(line, key, klen) == 0 && line[klen] == ':') {
+            const char *v = line + klen + 1;
+            while (v < line + ll && (*v == ' ' || *v == '\t')) v++;
+            size_t vl = (size_t)(line + ll - v);
+            while (vl && (v[vl-1] == ' ' || v[vl-1] == '\r') ) vl--;
+            char *out = malloc(vl + 1);
+            if (!out) return NULL;
+            memcpy(out, v, vl); out[vl] = '\0';
+            return out;
+        }
+        line = eol ? eol + 1 : NULL;
+    }
+    return NULL;
+}
+
+static char *read_text_file(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+    if (n < 0) { fclose(f); return NULL; }
+    char *buf = malloc((size_t)n + 1);
+    if (!buf) { fclose(f); return NULL; }
+    size_t rd = fread(buf, 1, (size_t)n, f); fclose(f);
+    buf[rd] = '\0';
+    return buf;
+}
+
+/* Comma/space-separated Provides or Conflicts list contains `name`? */
+static int field_has(const char *fieldval, const char *name) {
+    if (!fieldval || !*fieldval) return 0;
+    size_t nl = strlen(name);
+    const char *p = fieldval;
+    while (*p) {
+        while (*p == ' ' || *p == '\t' || *p == ',') p++;
+        const char *s = p;
+        while (*p && *p != ',' && *p != ' ' && *p != '\t') p++;
+        if ((size_t)(p - s) == nl && strncasecmp(s, name, nl) == 0) return 1;
+    }
+    return 0;
+}
+
+/* Does an installed package provide `name` (as its own Package, or via a
+ * Provides: entry)? If found, store its installed Version into `ver_out`.
+ * Returns 1 if `name` is satisfied by something installed, else 0. */
+static int installed_provides(const char *name, char *ver_out, size_t vs) {
+    char home[1024];
+    pmm_config_dir(home, sizeof(home));
+    char db[1200];
+    snprintf(db, sizeof(db), "%s/installed", home);
+    (void)ver_out; (void)vs;
+#ifndef _WIN32
+    DIR *d = opendir(db);
+    if (!d) return 0;
+    int hit = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        size_t ln = strlen(e->d_name);
+        if (ln < 5 || strcmp(e->d_name + ln - 5, ".info") != 0) continue;
+        char path[1400];
+        snprintf(path, sizeof(path), "%s/%s", db, e->d_name);
+        char *info = read_text_file(path);
+        if (!info) continue;
+        char *pkg = ctl_field(info, "Package");
+        char *ver = ctl_field(info, "Version");
+        char *prov = ctl_field(info, "Provides");
+        if (pkg && strcmp(pkg, name) == 0) {
+            if (ver_out && ver) snprintf(ver_out, vs, "%s", ver);
+            hit = 1;
+        } else if (field_has(prov, name)) {
+            if (ver_out && ver) snprintf(ver_out, vs, "%s", ver);
+            hit = 1;
+        }
+        free(pkg); free(ver); free(prov); free(info);
+        if (hit) break;
+    }
+    closedir(d);
+    return hit;
+#else
+    return 0;   /* conservative: never claim a dep is satisfied on Windows */
+#endif
+}
+
+/* Is the requested dep (name + optional version spec) already satisfied by an
+ * installed package (own name or a Provides), matching the version range?
+ * Returns 1 = satisfied (skip install), 0 = must install. */
+static int installed_satisfies(const char *depName, const char *spec) {
+    char ver[128] = "";
+    if (!installed_provides(depName, ver, sizeof(ver)) || !ver[0]) return 0;
+    if (!spec || !*spec) return 1;
+    return spec_match(ver, spec) ? 1 : 0;
+}
+
+/* Does `conflicts` (a comma list) name anything already installed? Used to
+ * reject an install that would clash with the current environment. */
+int any_installed_conflict(const char *conflicts) {
+    if (!conflicts || !*conflicts) return 0;
+    char *dup = strdup(conflicts), *p = dup;
+    int hit = 0;
+    while (p && *p) {
+        char *end = strchr(p, ',');
+        if (end) *end = '\0';
+        char *t = p; while (*t == ' ' || *t == '\t') t++;
+        if (*t && installed_provides(t, NULL, 0)) { hit = 1; break; }
+        if (!end) break;
+        p = end + 1;
+    }
+    free(dup);
+    return hit;
+}
+
 static int install_dep_spec(const char *depstr) {
     char name[256], spec[256];
     if (parse_dep(depstr, name, sizeof(name), spec, sizeof(spec)) != 0) return -1;
+    /* If this dep is already satisfied by an installed package (its own
+     * name or a Provides), don't re-install it. */
+    if (installed_satisfies(name, spec)) {
+        pmm_info("%s", pmm_tr_fmt("msg.dep-satisfied", name, spec[0] ? " " : "", spec));
+        return 0;
+    }
     for (int i = 0; i < dep_seen_n; i++)
         if (strcmp(dep_seen[i], name) == 0) return 0;   /* cycle / duplicate */
     if (dep_seen_n < 128) dep_seen[dep_seen_n++] = strdup(name);

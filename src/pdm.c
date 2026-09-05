@@ -540,6 +540,15 @@ int pdm_install_file(const char *pdmfile) {
         chdir_restore(); remove(tmpname); return -1;
     }
 
+    /* reject an install that would conflict with a package already present */
+    char *confl = control_get(ctl, "Conflicts");
+    if (confl && *confl && any_installed_conflict(confl)) {
+        pmm_error("%s", pmm_tr_fmt("msg.err.conflict", pkg, confl));
+        free(confl); free(pkg); if (ver) free(ver);
+        chdir_restore(); remove(tmpname); return -1;
+    }
+    free(confl);
+
     /* extract data into root (relative target: cwd is already the pm dir) */
     const char *tgt = flat ? "." : "root";
     /* If the package is pmm itself, its exe is the currently running binary and

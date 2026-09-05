@@ -809,6 +809,75 @@ static int cmd_mirror(int argc, char **argv) {
     return 1;
 }
 
+static unsigned long long g_clean_size;
+static int g_clean_count;
+
+/* Recursively delete every entry under `path`, keeping `path` itself and
+ * accumulating the number/size of files removed. Used by `pmm clean`. */
+static void clean_rm(const char *path) {
+#ifdef _WIN32
+    char patt[1200]; snprintf(patt, sizeof(patt), "%s\\*", path);
+    WIN32_FIND_DATAA fd; HANDLE h = FindFirstFileA(patt, &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) continue;
+            char full[1400]; snprintf(full, sizeof(full), "%s\\%s", path, fd.cFileName);
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                clean_rm(full);
+                RemoveDirectoryA(full);
+            } else {
+                ULONGLONG sz = ((ULONGLONG)fd.nFileSizeHigh << 32) | fd.nFileSizeLow;
+                g_clean_size += (unsigned long long)sz; g_clean_count++;
+                RemoveFileA(full);
+            }
+        } while (FindNextFileA(h, &fd));
+        FindClose(h);
+    }
+#else
+    DIR *d = opendir(path);
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d)) != NULL) {
+            if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+            char full[1400]; snprintf(full, sizeof(full), "%s/%s", path, e->d_name);
+            struct stat st;
+            if (stat(full, &st) == 0) {
+                if (S_ISDIR(st.st_mode)) { clean_rm(full); rmdir(full); }
+                else { g_clean_size += (unsigned long long)st.st_size; g_clean_count++; remove(full); }
+            }
+        }
+        closedir(d);
+    }
+#endif
+}
+
+/* pmm clean — drop everything under the cache dir (~/.pmm/cache) but keep it. */
+static int cmd_clean(void) {
+    char cache[1024];
+    pmm_cache_dir(cache, sizeof(cache));
+    g_clean_size = 0; g_clean_count = 0;
+    clean_rm(cache);
+    pmm_success("%s", pmm_tr_fmt("msg.cache-cleared", g_clean_count, (double)g_clean_size / 1024.0));
+    return 0;
+}
+
+/* Return the registry "latest" version of `pkg`. We use the top-level
+ * `version` field of `<pkg>.json` (the mirror bumps it on every release) rather
+ * than walking the variants array. Returns a malloc'd string, or NULL. */
+static char *registry_latest_version(const char *pkg) {
+    char rel[512]; snprintf(rel, sizeof(rel), "%s.json", pkg);
+    int status = 0;
+    char *body = registry_fetch(rel, &status);
+    if (!body) return NULL;
+    JsonValue *root = json_parse(body);
+    free(body);
+    if (!root) return NULL;
+    const char *best = json_str(root, "version");
+    char *out = best ? strdup(best) : NULL;
+    json_free(root);
+    return out;
+}
+
 static void print_help(void) {
     printf("PMM %s (%s)\n\n", PMM_VERSION, pmm_detect_arch());
     printf("%s\n", pmm_tr("help.usage"));
@@ -820,6 +889,7 @@ static void print_help(void) {
     printf("  %-32s%s\n", "pmm upgrade [--yes]      ", pmm_tr("desc.upgrade"));
     printf("  %-32s%s\n", "pmm mirror ...           ", pmm_tr("desc.mirror"));
     printf("  %-32s%s\n", "pmm self-update          ", pmm_tr("desc.self-update"));
+    printf("  %-32s%s\n", "pmm clean               ", pmm_tr("desc.clean"));
     printf("  %-32s%s\n", "pmm version | help       ", pmm_tr("desc.help"));
     printf("\n%s\n", pmm_tr("help.options"));
     printf("  %-32s%s\n", "-p<drive>  ", pmm_tr("opt.p-drive"));
@@ -1099,6 +1169,18 @@ int main(int argc, char **argv) {
         PmmConfig cfg; MirrorSel mirror;
         load_config(&cfg);
         load_mirror(&cfg, &mirror);
+        /* If the running binary already matches the newest registry version,
+         * skip the (re)install. */
+        char *latest = registry_latest_version("pmm");
+        if (latest) {
+            if (cmp_version(PMM_VERSION, latest) >= 0) {
+                pmm_info("%s", pmm_tr_fmt("msg.self-up-to-date", PMM_VERSION, latest));
+                free(latest); free(cfg.registry_url); free(cfg.mirror_name);
+                free(mirror.name); free(mirror.api_base);
+                return 0;
+            }
+            free(latest);
+        }
         pmm_info("self-update -> installing latest pmm (%s/%s)\n",
                pmm_os_name(pmm_detect_os()), pmm_detect_arch());
         int rc = install_from_registry("pmm", NULL, mirror.name);
@@ -1109,6 +1191,9 @@ int main(int argc, char **argv) {
                    pmm_config_dir((char[1024]){0}, 1024));
         return rc == 0 ? 0 : 1;
     }
+
+    if (strcmp(argv[1], "clean") == 0)
+        return cmd_clean();
 
     if (strcmp(argv[1], "update") == 0)
         return cmd_update();

@@ -21,6 +21,10 @@ extern int pmm_yes;
 /* Resolve a comma-separated Depends list ("a (>= 1.0), b") from the registry. */
 int pmm_install_dep_list(const char *list);
 
+/* Does a comma-separated Conflicts list name anything already installed?
+ * (dependency solver helper, also called from the .pdm installer). */
+int any_installed_conflict(const char *conflicts);
+
 /* Install from a remote registry (apt-style multi-mirror fallback):
  * looks up package `name` in the configured registry mirrors by priority.
  * If `version` is non-NULL, fetches {registry}/{name}/{version}.json, otherwise
