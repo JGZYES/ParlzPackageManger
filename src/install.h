@@ -13,6 +13,11 @@ int install_local_file(const char *path);
 /* Set by `pmm install --no-cache` to force a fresh download (drop cache file). */
 extern int pmm_no_cache;
 
+/* Set by `pmm install --force` to reinstall even if a package is already
+ * present, and by `-y/--yes` to skip any confirmation prompt. */
+extern int pmm_force_reinstall;
+extern int pmm_yes;
+
 /* Resolve a comma-separated Depends list ("a (>= 1.0), b") from the registry. */
 int pmm_install_dep_list(const char *list);
 

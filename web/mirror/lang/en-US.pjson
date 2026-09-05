@@ -70,6 +70,7 @@
   "msg.mirror-active": "active mirror set to '%s'",
   "msg.mirror-removed": "mirror '%s' removed",
   "msg.lang-set": "language set to '%s'",
+  "msg.setting-set": "set %s = %s",
   "msg.empty-path": "empty file path",
   "msg.verifying-native": "verifying %s is a native %s binary...",
   "msg.resolving-dep": "resolving dependency %s%s%s",

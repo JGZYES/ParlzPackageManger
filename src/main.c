@@ -439,6 +439,74 @@ static int cmd_upgrade(int argc, char **argv) {
     return 0;
 }
 
+/* pmm list --upgradable — show installed packages that have a newer registry
+ * version, without installing anything. */
+static int cmd_list_upgradable(int argc, char **argv) {
+    (void)argc; (void)argv;
+    char home[1024];
+    pmm_config_dir(home, sizeof(home));
+    char db[1200];
+    snprintf(db, sizeof(db), "%s/installed", home);
+
+    char files[128][1400];
+    int nfiles = list_info_files(db, files, 128);
+    if (nfiles == 0) { pmm_info("%s", pmm_tr("msg.no-installed")); return 0; }
+
+    int shown = 0;
+    for (int fi = 0; fi < nfiles; fi++) {
+        char info[4096];
+        FILE *fp = fopen(files[fi], "rb");
+        if (!fp) continue;
+        size_t got = fread(info, 1, sizeof(info) - 1, fp);
+        fclose(fp);
+        info[got] = '\0';
+
+        char pkg[256], curver[128];
+        installed_version(info, pkg, sizeof(pkg), curver, sizeof(curver));
+        if (!pkg[0]) continue;
+
+        char rel[512]; snprintf(rel, sizeof(rel), "%s.json", pkg);
+        int status = 0;
+        char *body = registry_fetch(rel, &status);
+        if (!body) continue;
+        JsonValue *root = json_parse(body);
+        free(body);
+        if (!root) continue;
+
+        const char *osn = pmm_os_name(pmm_detect_os());
+        const char *arn = pmm_detect_arch();
+        const char *best = NULL;
+        JsonValue *vr = json_get(root, "variants");
+        if (vr && vr->count > 0) {
+            for (int i = 0; i < vr->count; i++) {
+                JsonValue *v = json_at(vr, i);
+                if (!v || v->type != JSON_OBJECT) continue;
+                const char *vos = json_str(v, "os");
+                if (!vos || (strcmp(vos, osn) != 0 && strcmp(vos, "any") != 0)) continue;
+                const char *va = json_str(v, "arch");
+                if (va && va[0] && strcmp(va, arn) != 0 && strcmp(va, "any") != 0) continue;
+                const char *vv = json_str(v, "version");
+                if (!vv) continue;
+                if (!best || cmp_version(vv, best) > 0) best = vv;
+            }
+        } else {
+            best = json_str(root, "version");
+        }
+        char bestbuf[128];
+        if (best) snprintf(bestbuf, sizeof(bestbuf), "%s", best);
+        json_free(root);
+        if (!best) continue;
+
+        if (cmp_version(bestbuf, curver) > 0) {
+            printf("  %-20s %s -> %s\n", pkg, curver, bestbuf);
+            shown++;
+        }
+    }
+    if (shown == 0) pmm_info("%s\n", "no upgradable packages.");
+    else pmm_info("%d upgradable package(s).\n", shown);
+    return 0;
+}
+
 /* Write `body` to ~/.pmm/cache/registry/<rel>. Returns 0 on success. */
 static int save_registry_cache(const char *rel, const char *body) {
     char cache[1024];
@@ -772,12 +840,61 @@ static void mkdir_p_local(char *path) {
 
 /* pmm setting lang ... */
 static int cmd_setting(int argc, char **argv) {
-    if (argc < 1 || strcmp(argv[0], "lang") != 0) {
+    if (argc < 1) {
         pmm_error("%s", pmm_tr("msg.err.usage"));
         return 1;
     }
     char dir[1024];
     pmm_config_dir(dir, sizeof(dir));
+    char cfgpath[1200];
+    snprintf(cfgpath, sizeof(cfgpath), "%s/pmm.conf", dir);
+
+    /* setting get — print the current pmm.conf config */
+    if (strcmp(argv[0], "get") == 0) {
+        FILE *f = fopen(cfgpath, "r");
+        if (!f) { pmm_info("(no config yet)\n"); return 0; }
+        char line[1024];
+        while (fgets(line, sizeof(line), f)) fputs(line, stdout);
+        fclose(f);
+        return 0;
+    }
+
+    /* setting set <key> <value> — persist a key=value in pmm.conf */
+    if (strcmp(argv[0], "set") == 0) {
+        if (argc < 3) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+        const char *key = argv[1], *val = argv[2];
+        if (!*key || strstr(key, " ") || strstr(val, "\n")) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+        char lines[256][1024]; int nn = 0;
+        FILE *rf = fopen(cfgpath, "r");
+        if (rf) {
+            char line[1024];
+            while (fgets(line, sizeof(line), rf) && nn < 256) {
+                if (strncmp(line, key, strlen(key)) == 0 && (line[strlen(key)] == ' ' || line[strlen(key)] == '=' || line[strlen(key)] == '\n')) continue;
+                strncpy(lines[nn++], line, sizeof(lines[0]) - 1);
+            }
+            fclose(rf);
+        }
+        FILE *wf = fopen(cfgpath, "w");
+        if (!wf) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
+        for (int i = 0; i < nn; i++) fputs(lines[i], wf);
+        fprintf(wf, "%s = %s\n", key, val);
+        fclose(wf);
+        pmm_success("%s", pmm_tr_fmt("msg.setting-set", key, val));
+        return 0;
+    }
+
+    /* setting mirror <name> — set active mirror (persist mirror=<name>) */
+    if (strcmp(argv[0], "mirror") == 0) {
+        if (argc < 2) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+        /* reuse setting set mirror <name> */
+        char *fake[] = { (char*)"set", (char*)"mirror", argv[1], NULL };
+        return cmd_setting(3, fake);
+    }
+
+    if (strcmp(argv[0], "lang") != 0) {
+        pmm_error("%s", pmm_tr("msg.err.usage"));
+        return 1;
+    }
     char langdir[1200];
     snprintf(langdir, sizeof(langdir), "%s/lang", dir);
 
@@ -829,8 +946,6 @@ static int cmd_setting(int argc, char **argv) {
     mirrors_free(ml);
 
     /* persist language=<loc> in pmm.conf (always-writable text) */
-    char cfgpath[1200];
-    snprintf(cfgpath, sizeof(cfgpath), "%s/pmm.conf", dir);
     char lines[256][1024]; int nn = 0;
     FILE *rf = fopen(cfgpath, "r");
     if (rf) {
@@ -955,7 +1070,10 @@ int main(int argc, char **argv) {
         pmm_info("PMM %s (%s)\n", PMM_VERSION, pmm_detect_arch());
         return 0;
     }
-    if (strcmp(argv[1], "list") == 0) { pdm_list_installed(); return 0; }
+    if (strcmp(argv[1], "list") == 0) {
+        if (argc >= 3 && strcmp(argv[2], "--upgradable") == 0) return cmd_list_upgradable(argc - 2, argv + 2);
+        pdm_list_installed(); return 0;
+    }
     if (strcmp(argv[1], "mirror") == 0) return cmd_mirror(argc - 2, argv + 2);
     if (strcmp(argv[1], "setting") == 0) return cmd_setting(argc - 2, argv + 2);
     /* pmm remove <pkg>  (also used by the Windows "Uninstall" registration) */
@@ -1005,6 +1123,8 @@ int main(int argc, char **argv) {
     for (int i = 2; i < argc; i++) {
         const char *a = argv[i];
         if (strcmp(a, "--no-cache") == 0) { pmm_no_cache = 1; continue; }
+        if (strcmp(a, "--force") == 0)   { pmm_force_reinstall = 1; continue; }
+        if (strcmp(a, "-y") == 0 || strcmp(a, "--yes") == 0) { pmm_yes = 1; continue; }
         if (strcmp(a, "-dpkg") == 0) { forced = 1; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
         if (strcmp(a, "-msi") == 0)  { forced = 2; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
         if (strcmp(a, "-rpm") == 0)  { forced = 3; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }

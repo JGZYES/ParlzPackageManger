@@ -156,6 +156,8 @@ static int native_binary_ok(const char *path, PmmOS os) {
 static int install_path(const char *path, const char *name);
 
 int pmm_no_cache = 0;   /* --no-cache: drop cached file before download */
+int pmm_force_reinstall = 0;   /* --force: reinstall even if already present */
+int pmm_yes = 0;   /* -y/--yes: skip confirmation prompts */
 
 /* Extract the data.tar.* member of a .deb (an ar container) to `outdata`.
  * Pure C (no ar/dpkg required). Returns compression code:

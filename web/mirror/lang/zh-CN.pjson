@@ -70,6 +70,7 @@
   "msg.mirror-active": "当前镜像源已设为 '%s'",
   "msg.mirror-removed": "镜像源 '%s' 已移除",
   "msg.lang-set": "语言已设为 '%s'",
+  "msg.setting-set": "已设置 %s = %s",
   "msg.empty-path": "文件路径为空",
   "msg.verifying-native": "正在验证 %s 是否为可用的 %s 二进制...",
   "msg.resolving-dep": "正在解析依赖 %s%s%s",
