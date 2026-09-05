@@ -16,8 +16,9 @@ curl -sSL https://pmm.parlz.com/download/install.sh | bash
 # PowerShell
 Invoke-WebRequest https://pmm.parlz.com/download/pmm-0.3.6-windows-amd64.zip -OutFile pmm.zip
 Expand-Archive pmm.zip -DestinationPath pmm
-# 然后将 pmm\pmm.exe 所在目录加入 PATH
 ```
+
+> 然后将 `pmm\pmm.exe` 所在目录加入 PATH。
 
 ## Debian / Ubuntu（.deb）
 
