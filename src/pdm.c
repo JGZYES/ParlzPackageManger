@@ -355,6 +355,44 @@ static void flatten_bin(const char *dir) {
 #endif
 }
 
+/* Case-insensitive path equality (Windows paths/FAT are case-insensitive, and
+ * separators may be '/' or '\'); the running exe path uses backslashes while the
+ * install target uses forward slashes. */
+static int path_eq_ci(const char *a, const char *b) {
+    while (*a && *b) {
+        char ca = *a, cb = *b;
+        if (ca == '/' || ca == '\\') ca = '/';
+        if (cb == '/' || cb == '\\') cb = '/';
+        if (ca >= 'A' && ca <= 'Z') ca = (char)(ca - 'A' + 'a');
+        if (cb >= 'A' && cb <= 'Z') cb = (char)(cb - 'A' + 'a');
+        if (ca != cb) return 0;
+        a++; b++;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+/* If `target` is the currently running pmm executable, move it aside to
+ * `<target>.old` so a .pdm reinstall can write the new binary (a running image
+ * can be renamed, but not overwritten). Returns 1 if moved, 0 otherwise. */
+static int move_self_aside(const char *target) {
+    const char *self = pmm_self_path();
+    if (!self || !*self) return 0;
+    if (!path_eq_ci(target, self)) return 0;
+    char old[1500];
+    snprintf(old, sizeof(old), "%s.old", target);
+    remove(old);                        /* Windows rename can't clobber */
+    if (rename(target, old) != 0) return 0;
+    return 1;
+}
+
+/* Restore a previously-aside `<target>.old` back to `target` (best-effort). */
+static void restore_aside(const char *target) {
+    char old[1500];
+    snprintf(old, sizeof(old), "%s.old", target);
+    remove(target);
+    rename(old, target);
+}
+
 int pdm_info(const char *pdmfile) {
     pmm_info("%s\n", base_name(pdmfile));
     /* Copy into the pm dir + chdir, then use relative names (works with both
@@ -455,10 +493,22 @@ int pdm_install_file(const char *pdmfile) {
 
     /* extract data into root (relative target: cwd is already the pm dir) */
     const char *tgt = flat ? "." : "root";
+    /* If the package is pmm itself, its exe is the currently running binary and
+     * Windows/locked images can't be overwritten by tar. Move it aside first so
+     * the new binary can be written; restore on failure. */
+    char self_target[1500];
+    snprintf(self_target, sizeof(self_target), "%s/bin/pmm.exe", root);
+    int self_moved = move_self_aside(self_target);
     snprintf(cmd, sizeof(cmd), "tar -xzf \"%s/data.tar.gz\" -C \"%s\"", stage, tgt);
     if (system(cmd) != 0) {
         pmm_error(pmm_tr("msg.err.extract"));
+        if (self_moved) restore_aside(self_target);   /* put old binary back */
         chdir_restore(); remove(tmpname); return -1;
+    }
+    if (self_moved) {
+        char old[1600];
+        snprintf(old, sizeof(old), "%s.old", self_target);
+        remove(old);                                  /* drop the old image */
     }
 
     /* flat mode (-p <path>): move bin/* up into the address itself, drop bin/ */
