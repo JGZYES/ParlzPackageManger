@@ -887,7 +887,7 @@ static void print_help(void) {
     printf("  %-32s%s\n", "pmm remove <pkg>         ", pmm_tr("desc.remove"));
     printf("  %-32s%s\n", "pmm update               ", pmm_tr("desc.update"));
     printf("  %-32s%s\n", "pmm upgrade [--yes]      ", pmm_tr("desc.upgrade"));
-    printf("  %-32s%s\n", "pmm mirror ...           ", pmm_tr("desc.mirror"));
+    printf("  %-32s%s\n", "pmm setting mirror ...   ", pmm_tr("desc.mirror"));
     printf("  %-32s%s\n", "pmm self-update          ", pmm_tr("desc.self-update"));
     printf("  %-32s%s\n", "pmm clean               ", pmm_tr("desc.clean"));
     printf("  %-32s%s\n", "pmm version | help       ", pmm_tr("desc.help"));
@@ -953,12 +953,23 @@ static int cmd_setting(int argc, char **argv) {
         return 0;
     }
 
-    /* setting mirror <name> — set active mirror (persist mirror=<name>) */
+    /* setting mirror [list|check|add <name> <api>|use <name>|remove <name>|<name>]
+     * — all the former `pmm mirror` subcommands now live under `setting`.
+     * A bare name (not a known subcommand) keeps the old behaviour: set the
+     * active mirror (persist mirror=<name>). Bare `setting mirror` lists. */
     if (strcmp(argv[0], "mirror") == 0) {
-        if (argc < 2) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
-        /* reuse setting set mirror <name> */
-        char *fake[] = { (char*)"set", (char*)"mirror", argv[1], NULL };
-        return cmd_setting(3, fake);
+        if (argc >= 2) {
+            const char *s = argv[1];
+            if (strcmp(s, "list") == 0 || strcmp(s, "check") == 0 ||
+                strcmp(s, "add") == 0 || strcmp(s, "use") == 0 ||
+                strcmp(s, "remove") == 0) {
+                return cmd_mirror(argc - 1, argv + 1);   /* argv+1 = [sub, ...] */
+            }
+            /* mirror <name> → set active mirror */
+            char *fake[] = { (char*)"set", (char*)"mirror", argv[1], NULL };
+            return cmd_setting(3, fake);
+        }
+        return cmd_mirror(0, NULL);   /* bare `setting mirror` == list */
     }
 
     if (strcmp(argv[0], "lang") != 0) {
@@ -1156,7 +1167,6 @@ int main(int argc, char **argv) {
         if (argc >= 3 && strcmp(argv[2], "--upgradable") == 0) return cmd_list_upgradable(argc - 2, argv + 2);
         pdm_list_installed(); return 0;
     }
-    if (strcmp(argv[1], "mirror") == 0) return cmd_mirror(argc - 2, argv + 2);
     if (strcmp(argv[1], "setting") == 0) return cmd_setting(argc - 2, argv + 2);
     /* pmm remove <pkg>  (also used by the Windows "Uninstall" registration) */
     if (strcmp(argv[1], "remove") == 0) {
