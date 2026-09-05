@@ -27,7 +27,7 @@ pmm search <kw>          搜索
 pmm info <pkg>           详情
 pmm update               刷新镜像索引
 pmm upgrade              升级所有已装包
-pmm mirror list          查看镜像源
+pmm setting mirror list  查看镜像源
 pmm setting lang <xx>    切换语言包
 ```
 

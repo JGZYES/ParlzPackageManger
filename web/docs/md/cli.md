@@ -26,11 +26,11 @@ pmm verify <file>              # sha256/sha1
 ## 镜像 / 更新
 
 ```bash
-pmm mirror list
-pmm mirror add <n> <api>
-pmm mirror use <n>
-pmm mirror remove <n>
-pmm mirror check               # 探测各镜像源可达性
+pmm setting mirror list
+pmm setting mirror add <n> <api>
+pmm setting mirror use <n>
+pmm setting mirror remove <n>
+pmm setting mirror check             # 探测各镜像源可达性
 pmm update                     # 刷新镜像索引
 pmm upgrade [--yes]            # 升级所有已装包
 pmm self-update                # 更新 pmm 自身

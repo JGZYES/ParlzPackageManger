@@ -23,11 +23,11 @@ priority = 20
 ## 管理镜像
 
 ```bash
-pmm mirror list          # 列出
-pmm mirror add <n> <api> # 添加
-pmm mirror use <n>       # 设为当前
-pmm mirror remove <n>    # 移除
-pmm mirror check         # 探测每个源的可达性/优先级
+pmm setting mirror list          # 列出
+pmm setting mirror add <n> <api> # 添加
+pmm setting mirror use <n>       # 设为当前
+pmm setting mirror remove <n>    # 移除
+pmm setting mirror check         # 探测每个源的可达性/优先级
 ```
 
 ## 服务状态
