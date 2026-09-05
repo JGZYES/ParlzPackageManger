@@ -7,7 +7,7 @@ pmm_header('home', '跨平台 C 语言包管理器');
 ?>
 
 <header id="top" class="hero">
-  <div class="hero-inner">
+  <div class="hero-inner hero-inner--single">
     <div class="hero-badge">v<?php echo PMM_VERSION; ?> · C11 · Windows / Linux / macOS</div>
     <h1>ParlzPackageManager <span class="accent">(PMM)</span></h1>
     <p class="hero-tag">一个用 <strong>C 语言</strong>从零编写的跨平台包管理器。像 apt 一样多用镜像源，也能直接从 <strong>GitHub / GitLab / Gitea / Forgejo</strong> Release 装包。</p>

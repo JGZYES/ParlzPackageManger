@@ -50,6 +50,7 @@ code{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Co
 /* hero — two columns */
 .hero{max-width:var(--maxw);margin:0 auto;padding:70px 22px 40px}
 .hero-inner{display:grid;grid-template-columns:1.05fr 0.95fr;gap:40px;align-items:center}
+.hero-inner--single{grid-template-columns:1fr;max-width:640px}
 .hero-badge{display:inline-block;font-size:12.5px;letter-spacing:.4px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 14px;margin-bottom:20px}
 .hero h1{font-size:clamp(32px,5vw,52px);font-weight:800;letter-spacing:-1px;line-height:1.08}
 .accent{color:var(--accent)}
