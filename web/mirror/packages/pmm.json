@@ -1,6 +1,6 @@
 {
     "name": "pmm",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "os": "windows",
     "arch": "amd64",
     "description": "PMM",
@@ -517,6 +517,33 @@
             "url": "https://pmm.parlz.com/mirror/packages/pmm/0.5.0-linux-aarch64.pdm",
             "sha256": "a97fe6fb7c2467b84aebe656ba9c3c0c9c84056ea0a6491167ab90b0a056194f",
             "description": "PMM v0.5.0 (aarch64)"
+        },
+        {
+            "version": "0.5.1",
+            "os": "windows",
+            "arch": "amd64",
+            "file": "0.5.1-windows-amd64.pdm",
+            "url": "https://pmm.parlz.com/mirror/packages/pmm/0.5.1-windows-amd64.pdm",
+            "sha256": "a3b3129c77db4d89d4d969e9226d882c1972ab2fbb278f3b5fd38ed838c1c4f4",
+            "description": "PMM v0.5.1"
+        },
+        {
+            "version": "0.5.1",
+            "os": "linux",
+            "arch": "amd64",
+            "file": "0.5.1-linux-amd64.pdm",
+            "url": "https://pmm.parlz.com/mirror/packages/pmm/0.5.1-linux-amd64.pdm",
+            "sha256": "ec0ff54b6864799faf6c2976dbb0bbf2ea2e9591bbc67a0b917bd5636e94c441",
+            "description": "PMM v0.5.1"
+        },
+        {
+            "version": "0.5.1",
+            "os": "linux",
+            "arch": "aarch64",
+            "file": "0.5.1-linux-aarch64.pdm",
+            "url": "https://pmm.parlz.com/mirror/packages/pmm/0.5.1-linux-aarch64.pdm",
+            "sha256": "229ea5ed332406726243c1978e4e2b68291c8e19d417ca975ddd67636e2d85ab",
+            "description": "PMM v0.5.1 (aarch64)"
         }
     ]
 }
