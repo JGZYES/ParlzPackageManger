@@ -10,27 +10,27 @@ curl -sSL https://pmm.parlz.com/download/install.sh | bash
 
 ## 各平台产物（`/download/`）
 
-- [pmm-0.5.2-windows-amd64.zip](/download/pmm-0.5.2-windows-amd64.zip) — Windows 免安装
-- [pmm_0.5.2_amd64.deb](/download/pmm_0.5.2_amd64.deb) — Debian/Ubuntu
-- [pmm-0.5.2.x86_64.rpm](/download/pmm-0.5.2.x86_64.rpm) — CentOS/RHEL
-- [pmm-0.5.2.apk](/download/pmm-0.5.2.apk) — Alpine
-- [pmm-0.5.2.pkg.tar.zst](/download/pmm-0.5.2.pkg.tar.zst) — Arch
+- [pmm-0.5.3-windows-amd64.zip](/download/pmm-0.5.3-windows-amd64.zip) — Windows 免安装
+- [pmm_0.5.3_amd64.deb](/download/pmm_0.5.3_amd64.deb) — Debian/Ubuntu
+- [pmm-0.5.3.x86_64.rpm](/download/pmm-0.5.3.x86_64.rpm) — CentOS/RHEL
+- [pmm-0.5.3.apk](/download/pmm-0.5.3.apk) — Alpine
+- [pmm-0.5.3.pkg.tar.zst](/download/pmm-0.5.3.pkg.tar.zst) — Arch
 - [pmm](/download/pmm) — Linux 二进制
 - [pmm.exe](/download/pmm.exe) — Windows 二进制
 - [install.sh](/download/install.sh) — 一键安装脚本
 
-> `.pdm` 包走镜像注册表:`pmm install pmm==0.5.2`(见 [镜像源](index.php?page=mirror))。
+> `.pdm` 包走镜像注册表:`pmm install pmm==0.5.3`(见 [镜像源](index.php?page=mirror))。
 
 ## 用 pmm 安装（从镜像注册表）
 
 ```bash
-pmm install pmm==0.5.2
+pmm install pmm==0.5.3
 pmm install nodejs
 ```
 
 ## 镜像源
 
-- **深圳（默认）**：`https://sz.pmm.parlz.com/mirror/packages`
-- **香港（备份）**：`https://pmm.parlz.com/mirror/packages`
+- **深圳（默认）**：`https://sz.pmm.parlz.com/mirror/dists`
+- **香港（备份）**：`https://pmm.parlz.com/mirror/dists`
 
-历史版本的 `.pdm` 都在镜像 `mirror/packages/pmm/` 下。详见 [镜像源](index.php?page=mirror)。
+历史版本的 `.pdm` 都在镜像 `mirror/files/p/pmm/` 下。详见 [镜像源](index.php?page=mirror)。

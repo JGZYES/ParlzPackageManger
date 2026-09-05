@@ -1,0 +1,17 @@
+{
+  "name": "git",
+  "version": "2.55.0.5",
+  "os": "windows",
+  "description": "Git (Windows)",
+  "variants": [
+    {
+      "name": "git",
+      "version": "2.55.0.5",
+      "file": "2.55.0.5-windows.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/g/git/2.55.0.5-windows.pdm",
+      "sha256": "ad3d4d7e6705a4bda42fbc81c47e32bbea01c46c8225ef7990067f882eadca88",
+      "os": "windows",
+      "description": "Git for Windows"
+    }
+  ]
+}

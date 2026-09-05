@@ -1,0 +1,19 @@
+{
+  "name": "docker-ce",
+  "version": "29.8.0",
+  "os": "linux",
+  "arch": "amd64",
+  "description": "Docker Engine (CLI + daemon + containerd + runc)",
+  "variants": [
+    {
+      "name": "docker-ce",
+      "version": "29.8.0",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "docker-ce-29.8.0-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/d/docker-ce/docker-ce-29.8.0-linux-amd64.pdm",
+      "sha256": "fbe60a464f0fad570f6e3c1d0ce571800b708721525fa5a70015a1a667c8bd5d",
+      "description": "Docker Engine 29.8.0 (static, linux amd64; daemon needs root to start)"
+    }
+  ]
+}

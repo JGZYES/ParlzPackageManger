@@ -1,0 +1,26 @@
+{
+  "name": "tree",
+  "version": "2.3.2",
+  "variants": [
+    {
+      "name": "tree",
+      "version": "2.3.2",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "2.3.2-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/t/tree/2.3.2-linux-amd64.pdm",
+      "sha256": "197e8c6ba859ab4e21faa70de2927e5948a35ebccd4a5f699270564699a0a153",
+      "description": "tree 2.3.2 (linux amd64)"
+    },
+    {
+      "name": "tree",
+      "version": "2.3.2",
+      "os": "linux",
+      "arch": "aarch64",
+      "file": "2.3.2-linux-aarch64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/t/tree/2.3.2-linux-aarch64.pdm",
+      "sha256": "7b1cbef9c057d17834c65ac2934be261ecddacbeaea0c8d71462efc27ea6235e",
+      "description": "tree 2.3.2 (linux aarch64)"
+    }
+  ]
+}

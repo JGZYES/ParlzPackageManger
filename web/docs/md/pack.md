@@ -58,7 +58,7 @@ pmm install -p /opt/myapp ./myapp_1.0.0.pdm
 
 ## 发布到镜像
 
-包体在 `web/mirror/packages/<name>/`，并往 `web/mirror/packages/<name>.json` 增加一个变体：
+包体在 `web/mirror/files/<首字母>/<name>/`，并往 `web/mirror/dists/<name>.json` 增加一个变体：
 
 ```json
 {
@@ -72,7 +72,7 @@ pmm install -p /opt/myapp ./myapp_1.0.0.pdm
       "os": "linux",
       "arch": "amd64",
       "file": "1.0.0-linux-amd64.pdm",
-      "url": "https://pmm.parlz.com/mirror/packages/myapp/1.0.0-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/dists/myapp/1.0.0-linux-amd64.pdm",
       "sha256": "<包的 sha256>",
       "description": "My App"
     }

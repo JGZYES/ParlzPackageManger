@@ -1188,12 +1188,17 @@ static int cmd_setting(int argc, char **argv) {
         if (!ml->items[i].registry || !*ml->items[i].registry) continue;
         snprintf(base2, sizeof(base2), "%s", ml->items[i].registry);
         size_t bl = strlen(base2);
-        static const char *pkgsuf = "/packages";
-        size_t pl = strlen(pkgsuf);
-        if (bl >= pl && strcmp(base2 + bl - pl, pkgsuf) == 0)
-            strcpy(base2 + bl - pl, "/lang");   /* .../mirror/packages -> .../mirror/lang */
-        else
-            snprintf(base2 + bl, sizeof(base2) - bl, "/lang");
+        /* Language packs live at the mirror root {base}/lang/, NOT under the
+         * registry subpath ({base}/packages or {base}/dists). Strip whichever
+         * suffix is present and append /lang. */
+        static const char *sufs[] = { "/packages", "/dists", "/dist", NULL };
+        int matched = 0;
+        for (int k = 0; sufs[k]; k++) {
+            size_t sl = strlen(sufs[k]);
+            if (bl >= sl && strcmp(base2 + bl - sl, sufs[k]) == 0) { bl -= sl; matched = 1; break; }
+        }
+        (void)matched;
+        snprintf(base2 + bl, sizeof(base2) - bl, "/lang");
         snprintf(url, sizeof(url), "%s/%s.pjson", base2, loc);
         if (http_download(url, out) == 0) { got = 1; break; }
     }

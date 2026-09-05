@@ -1,0 +1,19 @@
+{
+  "name": "docker",
+  "version": "29.8.0",
+  "os": "linux",
+  "arch": "amd64",
+  "description": "Docker CLI (client)",
+  "variants": [
+    {
+      "name": "docker",
+      "version": "29.8.0",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "29.8.0-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/d/docker/29.8.0-linux-amd64.pdm",
+      "sha256": "d19c1617e647d0f036baddd10d5c45d834c0b8ba2aacfbb1da960e51800af7ec",
+      "description": "Docker CLI 29.8.0 (static, linux amd64)"
+    }
+  ]
+}

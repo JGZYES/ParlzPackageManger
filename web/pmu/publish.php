@@ -23,19 +23,21 @@ $body = file_get_contents('php://input');
 if (strlen($body) === 0) pmu_fail('empty upload body');
 if (strlen($body) > 100 * 1024 * 1024) pmu_fail('package too large (>100 MB)');
 
-$regDir = __DIR__ . '/../mirror/packages';
+$regDir = __DIR__ . '/../mirror/dists';
+$filesRoot = __DIR__ . '/../mirror/files';
 $pkgJson = $regDir . '/' . $name . '.json';
+$letter = strtolower(substr($name, 0, 1));
 
 /* duplicate-name reject: the package name is already published */
 if (is_file($pkgJson)) pmu_fail("package name '$name' already exists", 409);
 
 $sha = hash('sha256', $body);
 $file = $ver . '-' . $os . '-' . $arch . '.pdm';
-$pkgDir = $regDir . '/' . $name;
+$pkgDir = $filesRoot . '/' . $letter . '/' . $name;
 if (!is_dir($pkgDir)) @mkdir($pkgDir, 0777, true);
 file_put_contents($pkgDir . '/' . $file, $body);
 
-$url = 'https://pmm.parlz.com/mirror/packages/' . $name . '/' . $file;
+$url = 'https://pmm.parlz.com/mirror/files/' . $letter . '/' . $name . '/' . $file;
 $meta = [
     'name'        => $name,
     'version'     => $ver,
@@ -54,6 +56,13 @@ $meta = [
     ]],
 ];
 file_put_contents($pkgJson, json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+/* per-version metadata: dists/<name>/<version>.json */
+$vdir = $regDir . '/' . $name;
+if (!is_dir($vdir)) @mkdir($vdir, 0777, true);
+file_put_contents($vdir . '/' . $ver . '.json',
+    json_encode(['name' => $name, 'version' => $ver, 'variants' => $meta['variants']],
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
 /* append the name to the aggregate index if new */
 $pk = $regDir . '/packages.json';

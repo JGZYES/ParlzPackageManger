@@ -21,10 +21,12 @@
 .zcode/
 
 # The mirror registry is committed so the mirror is complete and downloadable.
-# Un-ignore the .pdm files there (*.pdm elsewhere stays ignored). Uses ** so it
-# still matches after the mirror moved to web/mirror/.
-!**/mirror/packages/
-!**/mirror/packages/**/*.pdm
+# Un-ignore the registry metadata (dists/) and the .pdm payloads (files/*/*).
+# (*.pdm elsewhere stays ignored). Uses ** so it still matches after relocation.
+!**/mirror/dists/
+!**/mirror/dists/**
+!**/mirror/files/
+!**/mirror/files/**/*.pdm
 
 # installer downloads served at /downloads/ (committed so the site works)
 !web/downloads/

@@ -1,0 +1,29 @@
+{
+  "name": "apache",
+  "version": "2.4.68",
+  "os": "linux",
+  "arch": "amd64",
+  "description": "Apache HTTP Server (apache2)",
+  "variants": [
+    {
+      "name": "apache",
+      "version": "2.4.68",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "2.4.68-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/a/apache/2.4.68-linux-amd64.pdm",
+      "sha256": "7b4af732af1f177d49cf33f2308cfebc4e898d19ab5b7ece725101d1a63597b7",
+      "description": "Apache httpd 2.4.68 (linux amd64, needs system libapr/apr-util)"
+    },
+    {
+      "name": "apache",
+      "version": "2.4.68",
+      "os": "linux",
+      "arch": "aarch64",
+      "file": "2.4.68-linux-aarch64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/a/apache/2.4.68-linux-aarch64.pdm",
+      "sha256": "827d2367409a1f5019421879ee543cbed59862097273e586262caafa03dceaa4",
+      "description": "Apache httpd 2.4.68 (linux aarch64)"
+    }
+  ]
+}

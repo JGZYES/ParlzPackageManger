@@ -1,0 +1,24 @@
+{
+  "name": "pmm",
+  "version": "0.1.6",
+  "variants": [
+    {
+      "version": "0.1.6",
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.1.6-windows-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/p/pmm/0.1.6-windows-amd64.pdm",
+      "sha256": "f71c26e4d4152bf613809977a8d0f58b6e7e1604b2c398cbab1c146e071fbebf",
+      "description": "PMM v0.1.6"
+    },
+    {
+      "version": "0.1.6",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.1.6-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/files/p/pmm/0.1.6-linux-amd64.pdm",
+      "sha256": "d9aa04651151df1a0e7ffdec9da9922e838791219053cee4cd362af0dbe3a141",
+      "description": "PMM v0.1.6"
+    }
+  ]
+}

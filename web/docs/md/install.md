@@ -14,7 +14,7 @@ curl -sSL https://pmm.parlz.com/download/install.sh | bash
 
 ```bash
 # PowerShell
-Invoke-WebRequest https://pmm.parlz.com/download/pmm-0.5.2-windows-amd64.zip -OutFile pmm.zip
+Invoke-WebRequest https://pmm.parlz.com/download/pmm-0.5.3-windows-amd64.zip -OutFile pmm.zip
 Expand-Archive pmm.zip -DestinationPath pmm
 ```
 
@@ -23,21 +23,21 @@ Expand-Archive pmm.zip -DestinationPath pmm
 ## Debian / Ubuntu（.deb）
 
 ```bash
-curl -L -o pmm.deb https://pmm.parlz.com/download/pmm_0.5.2_amd64.deb
+curl -L -o pmm.deb https://pmm.parlz.com/download/pmm_0.5.3_amd64.deb
 sudo apt install ./pmm.deb
 ```
 
 ## CentOS / RHEL（.rpm）
 
 ```bash
-curl -L -o pmm.rpm https://pmm.parlz.com/download/pmm-0.5.2.x86_64.rpm
+curl -L -o pmm.rpm https://pmm.parlz.com/download/pmm-0.5.3.x86_64.rpm
 sudo rpm -Uvh pmm.rpm
 ```
 
 ## 用 pmm 安装 pmm 自身
 
 ```bash
-pmm install pmm==0.5.2
+pmm install pmm==0.5.3
 ```
 
 ## 装好后

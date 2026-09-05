@@ -4,19 +4,19 @@ PMM 采用 apt 式多镜像源，按优先级回退。配置在 `~/.pmm/mirror.i
 
 ## 默认镜像
 
-- **深圳（默认）**：`https://sz.pmm.parlz.com/mirror/packages`
-- **香港（备份）**：`https://pmm.parlz.com/mirror/packages`
+- **深圳（默认）**：`https://sz.pmm.parlz.com/mirror/dists`
+- **香港（备份）**：`https://pmm.parlz.com/mirror/dists`
 
 ## mirror.ini 格式
 
 ```ini
 [sz]
-registry = https://sz.pmm.parlz.com/mirror/packages
+registry = https://sz.pmm.parlz.com/mirror/dists
 priority = 1
 default = true
 
 [main]
-registry = https://pmm.parlz.com/mirror/packages
+registry = https://pmm.parlz.com/mirror/dists
 priority = 20
 ```
 
@@ -33,8 +33,8 @@ pmm setting mirror check         # 探测每个源的可达性/优先级
 ## 服务状态
 
 首页有深圳/香港双镜像的实时探测：
-- 注册表 `mirror/packages/pmm.json`
-- `.pdm` 下载 `mirror/packages/pmm/<ver>-linux-amd64.pdm`
+- 注册表 `mirror/dists/pmm.json`
+- `.pdm` 下载 `mirror/files/p/pmm/<ver>-linux-amd64.pdm`
 - 镜像目录浏览 `mirror/`
 
 详见 [下载](index.php?page=download)。

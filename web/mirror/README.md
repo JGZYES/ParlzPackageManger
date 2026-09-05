@@ -43,11 +43,11 @@ Apache / Nginx 同理：`DirectoryIndex index.php`，`.pdm` 走静态文件即�
 ```ini
 # ~/.pmm/mirror.ini（Windows: %USERPROFILE%\.pmm\mirror.ini；或 -pd 后 D:\.pmm\mirror.ini）
 [main]
-registry = https://pmm.parlz.com/mirror/packages
+registry = https://pmm.parlz.com/mirror/dists
 priority = 1
 
 [sz]
-registry = https://sz.pmm.parlz.com/mirror/packages
+registry = https://sz.pmm.parlz.com/mirror/dists
 priority = 20
 ```
 

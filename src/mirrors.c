@@ -35,12 +35,12 @@ void pmm_ensure_default_mirror(const char *dir) {
           "# priority 越小越优先；default=true 为未显式指定时的默认镜像。\n"
           "#\n"
           "[sz]\n"
-          "registry = https://sz.pmm.parlz.com/mirror/packages\n"
+          "registry = https://sz.pmm.parlz.com/mirror/dists\n"
           "priority = 1\n"
           "default = true\n"
           "\n"
           "[main]\n"
-          "registry = https://pmm.parlz.com/mirror/packages\n"
+          "registry = https://pmm.parlz.com/mirror/dists\n"
           "priority = 20\n", f);
     fclose(f);
 }
