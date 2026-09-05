@@ -1,8 +1,11 @@
 [
+  "eza",
+  "fzf",
   "git",
   "nodejs",
   "pcl2",
   "php",
   "pmm",
-  "pureftpd"
+  "pureftpd",
+  "tree"
 ]

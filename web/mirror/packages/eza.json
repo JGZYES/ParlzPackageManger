@@ -1,0 +1,29 @@
+{
+  "name": "eza",
+  "version": "0.23.5",
+  "os": "linux",
+  "arch": "amd64",
+  "description": "eza - a modern, maintained replacement for ls",
+  "variants": [
+    {
+      "name": "eza",
+      "version": "0.23.5",
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.23.5-linux-amd64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/eza/0.23.5-linux-amd64.pdm",
+      "sha256": "35df7cfa7ab73b1c909d45bd03684d52b696474b88f5fc81cd0aadb7174f67d7",
+      "description": "eza 0.23.5 (linux amd64)"
+    },
+    {
+      "name": "eza",
+      "version": "0.23.5",
+      "os": "linux",
+      "arch": "aarch64",
+      "file": "0.23.5-linux-aarch64.pdm",
+      "url": "https://pmm.parlz.com/mirror/packages/eza/0.23.5-linux-aarch64.pdm",
+      "sha256": "7e7c4b4127d7fad23e83aee4ba479086f55be4db37b7b7d293316b46deb34938",
+      "description": "eza 0.23.5 (linux aarch64)"
+    }
+  ]
+}
