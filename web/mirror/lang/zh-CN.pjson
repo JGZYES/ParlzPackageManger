@@ -86,7 +86,7 @@
   "msg.err.cannot-read": "无法读取 %s",
   "msg.err.cannot-open": "无法打开文件: %s",
   "msg.err.invalid-locale": "无效的语言包: %s",
-  "msg.err.download-failed": "下载语言包 %s 失败",
+  "msg.err.download-failed": "下载 %s 失败",
   "msg.err.no-registry-mirror": "没有配置注册表镜像。请添加到 ~/.pmm/mirror.ini",
   "msg.err.no-mirror": "没有配置镜像源（使用: pmm mirror add）",
   "msg.err.no-mirror-file": "没有镜像配置文件",

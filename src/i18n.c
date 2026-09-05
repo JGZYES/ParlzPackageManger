@@ -58,7 +58,7 @@ static const char *kBuiltinZh =
 "\"msg.path-exists\":\"PATH 已包含 PMM 目录\",\"msg.err.registry-not-found\":\"找不到软件包 '%s'\","
 "\"msg.pmm-self-replaced\":\"pmm 已更新到 %s\",\"msg.pmm-self-hint\":\"无法覆盖 %s（需 root/管理员）;新版本在 %s。请将其加入 PATH 并在当前 shell 运行 hash -r\","
 "\"msg.err.usage\":\"用法\",\"msg.err.unknown-cmd\":\"未知命令 '%s' (试试 'pmm help')\","
-"\"msg.err.download-failed\":\"下载语言包 %s 失败\",\"msg.err.invalid-locale\":\"无效语言 %s\","
+"\"msg.err.download-failed\":\"下载 %s 失败\",\"msg.err.invalid-locale\":\"无效语言 %s\","
 "\"msg.err.not-found\":\"找不到软件包 '%s'\",\"msg.err.failed-install\":\"安装 %s 失败\",\"msg.err.conflict\":\"无法安装 %s:与已装的 %s 冲突\","
 "\"msg.err.no-registry-mirror\":\"没有配置注册表镜像\",\"msg.err.cannot-write\":\"无法写入 %s\","
 "\"desc.install\":\"安装\",\"desc.remove\":\"卸载\",\"desc.update\":\"刷新索引\","

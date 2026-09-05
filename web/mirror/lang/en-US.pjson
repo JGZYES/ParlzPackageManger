@@ -86,7 +86,7 @@
   "msg.err.cannot-read": "cannot read %s",
   "msg.err.cannot-open": "cannot open file: %s",
   "msg.err.invalid-locale": "invalid language pack: %s",
-  "msg.err.download-failed": "failed to download language pack %s",
+  "msg.err.download-failed": "failed to download %s",
   "msg.err.no-registry-mirror": "no registry mirror configured. Add to ~/.pmm/mirror.ini",
   "msg.err.no-mirror": "no mirrors configured (use: pmm mirror add)",
   "msg.err.no-mirror-file": "no mirror file",

@@ -814,16 +814,28 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
     char *body = NULL;
     char *used_base = NULL;
     for (int i = 0; i < nb; i++) {
-        snprintf(url, sizeof(url), "%s/%s.json", bases[i], name);
-        pmm_info("%s", pmm_tr_fmt("msg.looking-up", name, bases[i]));
-        body = http_get(url, &status);
-        if (getenv("PMM_DEBUG")) fprintf(stderr, "[reg] %s -> body=%s status=%d\n",
-                                         bases[i], body ? "set" : "NULL", status);
-        /* accept any body that isn't an explicit not-found/server error; some
-         * curl builds don't emit the status marker the way we expect, so a
-         * non-NULL body with an indeterminate status should still be parsed */
-        if (body && status != 404 && status != 403 && status != 503) { used_base = bases[i]; break; }
-        free(body); body = NULL;
+        char used = 0;
+        /* layout migration: an old .../mirror/packages base also falls back to
+         * .../mirror/dists, so stale mirror.ini keeps working after the reform. */
+        char distsbase[2048];
+        snprintf(distsbase, sizeof(distsbase), "%s", bases[i]);
+        size_t dbl = strlen(distsbase);
+        static const char *pkgsuf = "/packages";
+        size_t dpl = strlen(pkgsuf);
+        int isold = (dbl >= dpl && strcmp(distsbase + dbl - dpl, pkgsuf) == 0);
+        if (isold) snprintf(distsbase + dbl - dpl, sizeof(distsbase) - (dbl - dpl), "/dists");
+
+        for (int attempt = 0; attempt < (isold ? 2 : 1); attempt++) {
+            const char *use = (attempt == 0) ? bases[i] : distsbase;
+            snprintf(url, sizeof(url), "%s/%s.json", use, name);
+            pmm_info("%s", pmm_tr_fmt("msg.looking-up", name, use));
+            body = http_get(url, &status);
+            if (getenv("PMM_DEBUG")) fprintf(stderr, "[reg] %s -> body=%s status=%d\n",
+                                             use, body ? "set" : "NULL", status);
+            if (body && status != 404 && status != 403 && status != 503) { used_base = bases[i]; used = 1; break; }
+            free(body); body = NULL;
+        }
+        if (used) break;
     }
     if (!body) {
         pmm_error("%s", pmm_tr_fmt("msg.err.registry-not-found", name));

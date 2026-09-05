@@ -197,10 +197,24 @@ static char *registry_fetch(const char *rel, int *outstatus) {
             bases[nb++] = ml->items[i].registry;
     char url[2048]; int status = 0; char *body = NULL;
     for (int i = 0; i < nb; i++) {
-        snprintf(url, sizeof(url), "%s/%s", bases[i], rel);
-        body = http_get(url, &status);
-        if (body && status != 404 && status != 403 && status != 503) break;
-        free(body); body = NULL;
+        /* layout migration: an old .../mirror/packages base also falls back to
+         * .../mirror/dists, so a stale mirror.ini keeps working after the reform. */
+        char distsbase[2048];
+        snprintf(distsbase, sizeof(distsbase), "%s", bases[i]);
+        size_t dbl = strlen(distsbase);
+        static const char *pkgsuf = "/packages";
+        size_t dpl = strlen(pkgsuf);
+        int isold = (dbl >= dpl && strcmp(distsbase + dbl - dpl, pkgsuf) == 0);
+        if (isold) snprintf(distsbase + dbl - dpl, sizeof(distsbase) - (dbl - dpl), "/dists");
+
+        for (int attempt = 0; attempt < (isold ? 2 : 1); attempt++) {
+            const char *use = (attempt == 0) ? bases[i] : distsbase;
+            snprintf(url, sizeof(url), "%s/%s", use, rel);
+            body = http_get(url, &status);
+            if (body && status != 404 && status != 403 && status != 503) break;
+            free(body); body = NULL;
+        }
+        if (body) break;
     }
     mirrors_free(ml);
     if (outstatus) *outstatus = status;
