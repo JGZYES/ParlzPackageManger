@@ -47,11 +47,18 @@ fi
 mkdir -p "$(dirname "$DEST")"
 cp "$TMP" "$DEST" && chmod +x "$DEST" && rm -f "$TMP"
 
-# ---- PATH 提示 ----
+# ---- 安装完成:提示如何让当前 shell 立即用上新 pmm ----
+DEST_DIR="$(dirname "$DEST")"
 case ":$PATH:" in
-  *":$(dirname "$DEST"):"*) ;;
-  *) echo "pmm: 请将 $(dirname "$DEST") 加入 PATH（或重新登录 shell）" ;;
+  *":$DEST_DIR:"*) ;;
+  *) echo "pmm: 请将 $DEST_DIR 加入 PATH（或重新登录 shell）" ;;
 esac
 
+# 旧 shell 可能把 pmm 命中在已不存在的旧路径（如 ~/.pmm/root/bin/pmm），导致
+# 报 "No such file or directory"。bash 用 `hash -r`、zsh 用 `rehash`
+# 重新按 PATH 解析。子脚本无法清父 shell 的命中缓存，这里尽力清一次并给出提示。
+hash -r 2>/dev/null || true
+
 echo "pmm: 安装完成 -> $DEST"
+echo "pmm: 若当前 shell 里 pmm 仍不可用/报错，请先执行:  hash -r    (zsh 用: rehash)"
 "$DEST" -v 2>/dev/null || true
