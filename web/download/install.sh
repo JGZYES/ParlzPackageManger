@@ -23,11 +23,12 @@ case "$ARCH" in
   *) echo "pmm: 不支持的架构 $ARCH"; exit 1 ;;
 esac
 
-# ---- 下载 pmm（release 资产名为 pmm）----
-URL="https://github.com/$REPO/releases/download/v$VER/pmm"
-if [ "$arch" != "amd64" ]; then
-  echo "pmm: 注意：官方发布目前只提供 amd64 资产，$os/$arch 可能 404"
-fi
+# ---- 下载 pmm（按架构选 release 资产名）----
+case "$arch" in
+  amd64) ASSET="pmm" ;;
+  arm64) ASSET="pmm-aarch64" ;;
+esac
+URL="https://github.com/$REPO/releases/download/v$VER/$ASSET"
 echo "pmm: 下载 v$VER ($os/$arch) ..."
 TMP="$(mktemp)"
 # --progress-bar shows a live download progress line (tty only)
