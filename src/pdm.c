@@ -393,6 +393,51 @@ static void restore_aside(const char *target) {
     rename(old, target);
 }
 
+/* Locate the freshly-installed pmm binary under `root`. Fills `out` with the
+ * full path and returns 0 on success, 1 if it couldn't be found. */
+static int find_pmm_binary(const char *root, char *out, size_t outsz) {
+#ifdef _WIN32
+    const char *names[] = { "pmm.exe", "pmm" };
+#else
+    const char *names[] = { "pmm" };
+#endif
+    const char *dirms[] = { "/bin", "/usr/local/bin", "/", NULL };
+    for (int d = 0; dirms[d]; d++) {
+        for (size_t k = 0; k < sizeof(names) / sizeof(names[0]); k++) {
+            snprintf(out, outsz, "%s%s/%s", root, dirms[d], names[k]);
+            struct stat st;
+            if (stat(out, &st) == 0 && S_ISREG(st.st_mode)) return 0;
+        }
+    }
+    return 1;
+}
+
+/* After installing/upgrading the `pmm` tool itself, make the newly installed
+ * binary take effect immediately: copy it over the currently-running pmm
+ * (so an apt/system /usr/local/bin/pmm is replaced) and clear the shell's
+ * command hash so `pmm -v` reflects the new version without `hash -r`. */
+static void pmm_sync_self(const char *newbin) {
+    const char *self = pmm_self_path();
+    if (!self || !*self) return;
+    if (path_eq_ci(newbin, self)) return;          /* already the running image */
+    int moved = move_self_aside(self);
+    if (copy_file(newbin, self) != 0) {
+        if (moved) restore_aside(self);            /* put the old image back */
+        pmm_warn("%s", pmm_tr_fmt("msg.pmm-self-hint", self, newbin, newbin));
+        return;
+    }
+    if (moved) {
+        char old[1500];
+        snprintf(old, sizeof(old), "%s.old", self);
+        remove(old);                               /* drop the old image */
+    }
+    pmm_success("%s", pmm_tr_fmt("msg.pmm-self-replaced", self));
+#ifndef _WIN32
+    { char cx[1600]; snprintf(cx, sizeof(cx), "chmod +x \"%s\" 2>/dev/null || true", self); system(cx); }
+    system("hash -r 2>/dev/null || true");
+#endif
+}
+
 int pdm_info(const char *pdmfile) {
     pmm_info("%s\n", base_name(pdmfile));
     /* Copy into the pm dir + chdir, then use relative names (works with both
@@ -575,6 +620,15 @@ int pdm_install_file(const char *pdmfile) {
         system(cx);
     }
 #endif
+
+    /* If we just installed/upgraded the pmm tool itself, make the new binary
+     * take effect immediately: replace the running image and clear the hash.
+     * (Otherwise an apt/system /usr/local/bin/pmm keeps shadowing it.) */
+    if (pkg && strcmp(pkg, "pmm") == 0) {
+        char nb[1400];
+        if (find_pmm_binary(root, nb, sizeof(nb)) == 0)
+            pmm_sync_self(nb);
+    }
 
     free(pkg); if (ver) free(ver);
     return 0;

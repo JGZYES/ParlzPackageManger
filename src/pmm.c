@@ -393,25 +393,29 @@ void pmm_add_to_path(void) {
     }
 #endif
 
-    /* append missing dirs (bounds-safe: never let size_t underflow) */
-    char next[17000] = "";
-    snprintf(next, sizeof(next), "%s", cur);
+    /* prepend any missing PMM dirs so they take priority over /usr/local/bin
+     * (an apt/system install could otherwise shadow a pmm-managed binary). */
+    char prefix[17000] = "";
+    size_t plen = 0;
     int added = 0;
     for (int i = 0; i < n; i++) {
         if (!list[i][0]) continue;
-        if (path_has(next, list[i], ';') || path_has(next, list[i], ':')) continue;
-        size_t l = strlen(next);
-        /* ensure a separator between entries */
-        if (l && next[l-1] != ';' && next[l-1] != ':' && l + 1 < sizeof(next)) {
-            next[l] = ';'; next[l+1] = '\0'; l++;
-        }
-        size_t room = sizeof(next) - l - 1;
+        if (path_has(cur, list[i], ';') || path_has(cur, list[i], ':')
+            || path_has(prefix, list[i], ';') || path_has(prefix, list[i], ':')) continue;
+        if (plen) { if (plen + 1 < sizeof(prefix)) prefix[plen++] = ';'; }
+        size_t room = sizeof(prefix) - plen - 1;
         if (room <= 0) break;                 /* no space left: stop */
-        snprintf(next + l, room + 1, "%s", list[i]);
+        snprintf(prefix + plen, room + 1, "%s", list[i]);
+        plen += strlen(list[i]);
         added++;
         pmm_info("%s", pmm_tr_fmt("msg.path-adding", list[i]));
     }
     if (!added) { pmm_info(pmm_tr("msg.path-exists")); return; }
+
+    /* final value: PMM dirs (prefix) then the existing startup PATH (cur).
+     * Only Windows persists it (setx); Linux prepends via .bashrc below. */
+    char next[17000] = "";
+    snprintf(next, sizeof(next), "%s;%s", prefix, cur);
 
 #ifdef _WIN32
     {

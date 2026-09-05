@@ -55,6 +55,7 @@ static const char *kBuiltinZh =
 "\"msg.checksum-ok\":\"%s 校验 OK: %s\",\"msg.checksum-mismatch\":\"校验不匹配 (%s)!\","
 "\"msg.resolving-dep\":\"正在解析依赖 %s\",\"msg.registry-ok\":\"注册表 sha256 OK: %s\","
 "\"msg.path-exists\":\"PATH 已包含 PMM 目录\",\"msg.err.registry-not-found\":\"找不到软件包 '%s'\","
+"\"msg.pmm-self-replaced\":\"pmm 已更新到 %s\",\"msg.pmm-self-hint\":\"无法覆盖 %s（需 root/管理员）;新版本在 %s。请将其加入 PATH 并在当前 shell 运行 hash -r\","
 "\"msg.err.usage\":\"用法\",\"msg.err.unknown-cmd\":\"未知命令 '%s' (试试 'pmm help')\","
 "\"msg.err.download-failed\":\"下载语言包 %s 失败\",\"msg.err.invalid-locale\":\"无效语言 %s\","
 "\"msg.err.not-found\":\"找不到软件包 '%s'\",\"msg.err.failed-install\":\"安装 %s 失败\","
