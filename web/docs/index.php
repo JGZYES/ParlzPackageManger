@@ -1,44 +1,70 @@
 <?php
-/* PMM docs site — scans md/*.md into a left file tree and renders the selected
- * page on the right. URL: docs/index.php?page=<slug> (defaults to "index"). */
+/* PMM docs site — recursive collapsible file tree (left) + rendered md (right).
+ * Scans md/ recursively; folders → <details><summary>, .md → file links.
+ * URL: docs/index.php?page=<relpath-without-.md> (defaults to "index"). */
 define('PMM_SITE', 1);
 require dirname(__DIR__) . '/_common.php';
 
 $mdDir = __DIR__ . '/md';
+$page  = isset($_GET['page']) ? (string)$_GET['page'] : 'index';
 
-/* Discover every .md file; title = first "# " line, else the filename. */
-$pages = [];   // slug -> title
-if (is_dir($mdDir)) {
-    foreach (glob($mdDir . '/*.md') as $f) {
-        $slug = basename($f, '.md');
-        $title = $slug;
-        $raw = (string)file_get_contents($f);
-        if (preg_match('/^#\s+(.+)$/m', $raw, $m)) $title = trim($m[1]);
-        $pages[$slug] = $title;
+/* Recursively render the tree under `dir` (relative to mdDir). */
+function render_tree(string $dir, string $rel): string {
+    $html = '';
+    $items = scandir($dir);
+    if (!$items) return '';
+    $folders = []; $files = [];
+    foreach ($items as $it) {
+        if ($it === '.' || $it === '..') continue;
+        $full = $dir . '/' . $it;
+        if (is_dir($full)) $folders[] = $it;
+        elseif (substr($it, -3) === '.md') $files[] = $it;
     }
+    sort($folders); sort($files);
+    foreach ($folders as $f) {
+        $childRel = $rel === '' ? $f : $rel . '/' . $f;
+        $html .= '<details class="docs-folder"><summary class="docs-folder-name">📁 ' .
+                 htmlspecialchars($f) . '</summary><div class="docs-children">' .
+                 render_tree($dir . '/' . $f, $childRel) . '</div></details>';
+    }
+    foreach ($files as $fname) {
+        $slug = $rel === '' ? basename($fname, '.md') : $rel . '/' . basename($fname, '.md');
+        $title = basename($fname, '.md');
+        $raw = (string)@file_get_contents($dir . '/' . $fname);
+        if (preg_match('/^#\s+(.+)$/m', $raw, $m)) $title = trim($m[1]);
+        $active = ($slug === $GLOBALS['page']) ? ' active' : '';
+        $html .= '<a class="docs-link' . $active . '" href="index.php?page=' .
+                 rawurlencode($slug) . '">📄 ' . htmlspecialchars($title) . '</a>';
+    }
+    return $html;
 }
-
-$page = isset($_GET['page']) ? (string)$_GET['page'] : 'index';
-if (!isset($pages[$page])) $page = 'index';
-$title = $pages[$page];
 
 $body = '';
 $f = $mdDir . '/' . $page . '.md';
 if (is_file($f)) {
-    $body = (string)file_get_contents($f);
-    $body = str_replace("\r", "", $body);   // md() regex hard-codes \n
-    $body = md($body);
+    $raw = (string)file_get_contents($f);
+    $raw = str_replace("\r", "", $raw);
+    $body = md($raw);
 }
+// crumb title = file's first heading or slug
+$title = $page;
+if ($body !== '' && preg_match('/^#\s+(.+)$/m', str_replace('<', '', $body), $m)) $title = trim(strip_tags($m[1]));
 
 pmm_header('docs', '文档 · ' . $title);
 ?>
 <style>
-/* docs layout — inline, so it works regardless of external style.css state */
-.docs-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;max-width:1160px;margin:0 auto;padding:28px 22px 60px;align-items:start}
+/* docs layout — inline, works regardless of external CSS */
+.docs-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:28px;max-width:1160px;margin:0 auto;padding:28px 22px 60px;align-items:start}
 .docs-sidebar{position:sticky;top:14px;min-width:0;border-right:1px solid #282828;padding-right:16px}
 .docs-sidebar-brand{font-weight:700;font-size:15px;color:#fff;padding:0 4px 12px;border-bottom:1px solid #282828;margin-bottom:8px}
-.docs-tree{display:block}
-.docs-tree a.docs-link{display:block;font-size:14px;color:#9a9a9a;text-decoration:none;padding:7px 10px;border-radius:7px;margin:0}
+.docs-tree{display:block;font-family:ui-monospace,monospace}
+.docs-folder{display:block;margin:2px 0}
+.docs-folder[open]>.docs-folder-name{color:#fff}
+.docs-folder-name{cursor:pointer;display:block;font-size:13.5px;color:#9a9a9a;padding:5px 6px;border-radius:6px;list-style:none}
+.docs-folder-name:hover{color:#fff;background:#101010}
+.docs-folder-name::marker{content:""}
+.docs-children{margin-left:16px;border-left:1px solid #282828;padding-left:8px}
+.docs-tree a.docs-link{display:block;font-size:13.5px;color:#9a9a9a;text-decoration:none;padding:4px 6px;border-radius:6px;margin:0}
 .docs-tree a.docs-link:hover{color:#fff;background:#101010}
 .docs-tree a.docs-link.active{color:#000;background:#f2f2f2}
 .docs-content{min-width:0}
@@ -65,11 +91,7 @@ pmm_header('docs', '文档 · ' . $title);
 <section class="docs-layout">
   <aside class="docs-sidebar">
     <div class="docs-sidebar-brand"><span>PMM 文档</span></div>
-    <nav class="docs-tree">
-      <?php foreach ($pages as $slug => $t): ?>
-        <a class="docs-link<?php echo $slug === $page ? ' active' : ''; ?>" href="index.php?page=<?php echo $slug; ?>"><?php echo htmlspecialchars($t); ?></a>
-      <?php endforeach; ?>
-    </nav>
+    <nav class="docs-tree"><?php echo render_tree($mdDir, ''); ?></nav>
   </aside>
   <div class="docs-content">
     <div class="docs-crumb">文档 / <?php echo htmlspecialchars($title); ?></div>
