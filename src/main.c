@@ -1079,6 +1079,7 @@ int main(int argc, char **argv) {
     /* pmm remove <pkg>  (also used by the Windows "Uninstall" registration) */
     if (strcmp(argv[1], "remove") == 0) {
         if (argc < 3) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+        if (argv[2][0] == '-') { pmm_error("%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[2])); return 1; }
         return pdm_remove(argv[2]) == 0 ? 0 : 1;
     }
     /* pmm self-update: install the latest 'pmm' tool package (auto os+arch) */
@@ -1134,7 +1135,14 @@ int main(int argc, char **argv) {
         if (strncmp(a, "--version=", 10) == 0) { version = a + 10; continue; }
         if (a[0] != '-' && ni < 64) items[ni++] = a;
     }
-    if (ni == 0) items[ni++] = argv[2];
+    if (ni == 0) {
+        /* A bare leading option (e.g. `install --gits`) is not a package; report
+         * an unknown command instead of treating the flag as a name. */
+        if (argv[2][0] == '-')
+            pmm_error("%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[2]));
+        else items[ni++] = argv[2];
+        if (ni == 0) return 1;
+    }
 
     PmmConfig cfg; MirrorSel mirror;
     load_config(&cfg);
