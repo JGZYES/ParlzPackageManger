@@ -297,3 +297,26 @@ code{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Co
 .rel-size{font-size:11.5px;color:var(--dim);font-family:ui-monospace,monospace;white-space:nowrap}
 .rel-dl{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:3px 10px;text-decoration:none;white-space:nowrap}
 .rel-dl:hover{color:#fff;border-color:#fff}
+
+/* ---------- docs site ---------- */
+.docs-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.docs-link{font-size:13.5px;color:var(--muted);text-decoration:none;padding:6px 14px;border:1px solid var(--line);border-radius:999px;white-space:nowrap}
+.docs-link:hover{color:#fff;border-color:#fff}
+.docs-link.active{color:var(--ink);background:var(--accent);border-color:var(--accent)}
+.docs-body{max-width:860px;line-height:1.8;color:var(--text)}
+.docs-body h1{font-size:30px;margin:0 0 18px;letter-spacing:-.5px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.docs-body h2{font-size:20px;margin:34px 0 12px;color:#fff}
+.docs-body h3{font-size:16px;margin:26px 0 10px;color:#fff}
+.docs-body p{margin:0 0 14px}
+.docs-body li{margin:5px 0}
+.docs-body ul,.docs-body ol{padding-left:22px;margin:0 0 14px}
+.docs-body code{background:var(--panel);border:1px solid var(--line);padding:1px 6px;border-radius:5px;font-size:13px;font-family:ui-monospace,monospace;color:var(--muted)}
+.docs-body pre.mdcode{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;margin:0 0 14px}
+.docs-body pre.mdcode code{background:none;border:0;padding:0;color:var(--text);font-size:13px;line-height:1.6;display:block}
+.docs-body hr{border:0;border-top:1px solid var(--line);margin:22px 0}
+.docs-body a{color:#fff;text-decoration:underline}
+.docs-body a:hover{color:var(--accent)}
+.docs-body strong{color:#fff}
+.docs-body table{border-collapse:collapse;width:100%;margin:0 0 16px}
+.docs-body th,.docs-body td{border:1px solid var(--line);padding:8px 12px;font-size:13px;text-align:left}
+.docs-body th{background:var(--panel);color:#fff}

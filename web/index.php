@@ -1,5 +1,6 @@
 <?php
-/* PMM home — hero + rotating dotted Earth + entry cards to the 4 pages. */
+/* PMM home — brand hero + rotating Earth + live mirror status. Content lives
+ * in the docs site (web/docs). */
 define('PMM_SITE', 1);
 require __DIR__ . '/_common.php';
 
@@ -60,8 +61,8 @@ pmm_header('home', '跨平台 C 语言包管理器');
       <h1>ParlzPackageManager <span class="accent">(PMM)</span></h1>
       <p class="hero-tag">一个用 <strong>C 语言</strong>从零编写的跨平台包管理器。像 apt 一样多用镜像源，也能直接从 <strong>GitHub / GitLab / Gitea / Forgejo</strong> Release 装包。</p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="install.php">快速安装</a>
-        <a class="btn btn-ghost" href="download.php">下载 v<?php echo PMM_VERSION; ?> ↓</a>
+        <a class="btn btn-primary" href="docs/index.php">文档 · 安装</a>
+        <a class="btn btn-ghost" href="docs/index.php?page=download">下载 v<?php echo PMM_VERSION; ?> ↓</a>
       </div>
       <div class="hero-note"><span class="dot ok"></span> 双镜像 · 深圳 / 香港 实时在线</div>
     </div>
@@ -75,30 +76,20 @@ pmm_header('home', '跨平台 C 语言包管理器');
 <section class="section entry-section">
   <div class="wrap">
     <div class="entry-grid">
-      <a class="entry-card" href="features.php">
-        <span class="entry-icon">⌘</span>
-        <span class="entry-title">特性</span>
-        <span class="entry-desc">apt 式多镜像、git release、.pdm、依赖解析、并发下载</span>
+      <a class="entry-card" href="docs/index.php">
+        <span class="entry-icon">▸</span>
+        <span class="entry-title">文档</span>
+        <span class="entry-desc">特性、安装、下载、CLI、镜像、翻译</span>
       </a>
-      <a class="entry-card" href="install.php">
+      <a class="entry-card" href="docs/index.php?page=install">
         <span class="entry-icon">▸</span>
         <span class="entry-title">安装</span>
-        <span class="entry-desc">三条命令装好 Windows / Linux / macOS 客户端</span>
+        <span class="entry-desc">Windows / Linux / macOS 一键安装</span>
       </a>
-      <a class="entry-card" href="download.php">
+      <a class="entry-card" href="docs/index.php?page=download">
         <span class="entry-icon">↓</span>
         <span class="entry-title">下载</span>
-        <span class="entry-desc">zip / deb / install.sh / .pdm 全部安装产物</span>
-      </a>
-      <a class="entry-card" href="servers.php">
-        <span class="entry-icon">◉</span>
-        <span class="entry-title">服务状态</span>
-        <span class="entry-desc">深圳 / 香港镜像的实时探测与详细信息</span>
-      </a>
-      <a class="entry-card" href="git.php">
-        <span class="entry-icon">&lt;/&gt;</span>
-        <span class="entry-title">源码</span>
-        <span class="entry-desc">GitHub 风格浏览 PMM 源码（本地仓库副本）</span>
+        <span class="entry-desc">zip / deb / rpm / install.sh / .pdm</span>
       </a>
     </div>
   </div>

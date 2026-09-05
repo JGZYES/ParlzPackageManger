@@ -89,7 +89,7 @@ if ($dirRel !== '') {
 }
 foreach ($dirs as $d) {
     $href = '?dir=' . rawurlencode($webRel === '' ? $d : $webRel . '/' . $d);
-    echo "<li>" . ic('folder') . "<a href='${href}'>" . en($d) . "/</a></li>";
+    echo "<li>" . ic('folder') . "<a href='{$href}'>" . en($d) . "/</a></li>";
 }
 foreach ($files as $f) {
     $href = url_enc_path($webRel, $f);

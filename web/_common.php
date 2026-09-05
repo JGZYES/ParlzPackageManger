@@ -8,13 +8,8 @@ define('PMM_VERSION', '0.3.6');
 
 function pmm_nav_links(string $active): string {
     $items = [
-        'home'     => ['index.php',    '首页'],
-        'features' => ['features.php', '特性'],
-        'install'  => ['install.php',  '安装'],
-        'download' => ['download.php', '下载'],
-        'status'   => ['servers.php',  '服务状态'],
-        'translate'=> ['translate.php', '翻译'],
-        'source'   => ['git.php',   '源码'],
+        'home'    => ['index.php',       '首页'],
+        'docs'    => ['docs/index.php',  '文档'],
     ];
     $html = '';
     foreach ($items as $key => [$href, $label]) {
@@ -22,6 +17,21 @@ function pmm_nav_links(string $active): string {
         $html .= '<li><a' . $cls . ' href="' . $href . '">' . $label . '</a></li>';
     }
     return $html;
+}
+
+/* Minimal markdown renderer (self-contained). Used by the docs site. */
+function md(string $t): string {
+    $t = htmlspecialchars($t, ENT_QUOTES, 'UTF-8');
+    $t = preg_replace('/```([a-zA-Z0-9]*)\n(.*?)```/s', "<pre class=\"mdcode\"><code>\\2</code></pre>", $t);
+    $t = preg_replace('/^### (.*)$/m', '<h3>$1</h3>', $t);
+    $t = preg_replace('/^## (.*)$/m', '<h2>$1</h2>', $t);
+    $t = preg_replace('/^# (.*)$/m', '<h1>$1</h1>', $t);
+    $t = preg_replace('/^[-*] (.*)$/m', '<li>$1</li>', $t);
+    $t = preg_replace('/^\s*---\s*$/m', '<hr>', $t);
+    $t = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $t);
+    $t = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<a href="$2" target="_blank" rel="noopener">$1</a>', $t);
+    $t = preg_replace('/`([^`]+)`/', '<code>$1</code>', $t);
+    return $t;
 }
 
 function pmm_header(string $active, string $title): void {
