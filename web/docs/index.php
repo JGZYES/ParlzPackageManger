@@ -63,15 +63,15 @@ function render_tree(string $dir, string $rel): string {
 }
 
 $body = '';
+$title = $page;
 $f = $mdDir . '/' . $page . '.md';
 if (is_file($f)) {
     $raw = (string)file_get_contents($f);
     $raw = str_replace("\r", "", $raw);
+    /* title = first '# ' line of the raw markdown (not the rendered body) */
+    if (preg_match('/^#\s+(.+)$/m', $raw, $m)) $title = trim($m[1]);
     $body = md($raw);
 }
-// crumb title = file's first heading or slug
-$title = $page;
-if ($body !== '' && preg_match('/^#\s+(.+)$/m', str_replace('<', '', $body), $m)) $title = trim(strip_tags($m[1]));
 
 if (isset($_GET['ajax'])) {   /* partial response for AJAX nav (no layout) */
     echo '<div class="docs-crumb">文档 / ' . htmlspecialchars($title) . '</div>';

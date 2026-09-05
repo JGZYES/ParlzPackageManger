@@ -7,7 +7,7 @@
 ## 一分钟装好
 
 ```bash
-curl -sSL https://pmm.parlz.com/install.sh | bash
+curl -sSL https://pmm.parlz.com/download/install.sh | bash
 ```
 
 装好后：
