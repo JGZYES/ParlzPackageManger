@@ -1,5 +1,19 @@
 /* ParlzPackageManager — pure grayscale flat (black / white / gray only) */
 
+/* ---- site fonts: English ZSFT-o + Chinese TW-Kai ---- */
+@import url("https://fontsapi.zeoseven.com/36/main/result.css");
+
+@font-face{font-family:"ZSFT-o";src:url("https://fontsapi.zeoseven.com/o/medium.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap;}
+@font-face{font-family:"ZSFT-o";src:url("https://fontsapi.zeoseven.com/o/main.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap;}
+@font-face{font-family:"ZSFT-o";src:url("https://fontsapi.zeoseven.com/o/semi-bold.woff2") format("woff2");font-style:normal;font-weight:600;font-display:swap;}
+@font-face{font-family:"ZSFT-o";src:url("https://fontsapi.zeoseven.com/o/bold.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap;}
+@font-face{font-family:"ZSFT-o";src:url("https://fontsapi.zeoseven.com/o/extra-bold.woff2") format("woff2");font-style:normal;font-weight:800;font-display:swap;}
+
+body{
+  font-family:"ZSFT-o","TW-Kai",system-ui,sans-serif;
+  font-weight:normal;
+}
+
 :root{
   --bg:#030303;          /* near-black */
   --bg2:#060606;
