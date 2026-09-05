@@ -148,37 +148,46 @@ static void hms(double sec, char *out, size_t n) {
  *   93%|##############--------| 36.1MB/38.8MB [01:30<00:05, 560.7KB/s] */
 static void render_progress(unsigned long long fetched, unsigned long long total,
                             double elapsed, double speed, int done) {
-    int w = 28;
-    char line[240];
-    if (total == 0) { /* unknown total */
+    int w = 40;                          /* bar width in columns */
+    char line[320]; int li = 0;
+    /* erase-line + CR so each frame overwrites cleanly (no leftover, narrow-safe) */
+    {\
+        const char *cl = "\033[2K\r";
+        size_t l = strlen(cl); memcpy(line+li, cl, l); li += (int)l;\
+    }
+    if (total == 0) {                    /* unknown total */
         char f[32], sp[32], et[32];
         hs(fetched, f, sizeof(f));
         hs(speed > 0 ? speed : 0, sp, sizeof(sp));
         hms(elapsed, et, sizeof(et));
-        snprintf(line, sizeof(line), "\r  %s [%s, %s/s]", f, et, sp);
+        int n = snprintf(line+li, sizeof(line)-(size_t)li, "  %s [%s, %s/s]", f, et, sp);
+        if (n > 0) li += n;
     } else {
-        double pct = (double)fetched / (double)total * 100.0;
-        int fill = (int)(pct / 100.0 * w);
-        char bar[32];
-        for (int i = 0; i < w; i++) bar[i] = (i < fill) ? '#' : ' ';
-        bar[w] = '\0';
-        char f[32], t[32], sp[32], e[32], eta[32];
+        double frac = (double)fetched / (double)total;
+        int full = (int)(frac * (double)w); if (full > w) full = w;
+        int part = (full < w) && (frac * (double)w - (double)full) > 0.0001;
+        char f[32], t[32], sp[32], eta[32];
         hs(fetched, f, sizeof(f));
         hs(total, t, sizeof(t));
         hs(speed > 0 ? speed : 0, sp, sizeof(sp));
-        hms(elapsed, e, sizeof(e));
         double rem = speed > 0 ? ((double)total - (double)fetched) / speed : 0;
         hms(rem, eta, sizeof(eta));
-        snprintf(line, sizeof(line), "\r%3.0f%%|%s| %s/%s [%s<%s, %s/s]",
-                 pct >= 100.0 ? 100.0 : pct, bar, f, t, e, eta, sp);
+        /* pip/rich style: filled bar GREEN, partial cell ╸, remaining RED */
+        const char *grn = "\033[32m", *red = "\033[31m", *rst = "\033[0m";
+        const char *BAR = "\xe2\x94\x81";  /* ━ */
+        const char *PART = "\xe2\x95\xb8"; /* ╸ */
+#define APP(s) do { size_t l = strlen(s); memcpy(line+li, s, l); li += (int)l; } while (0)
+        APP(grn); for (int i = 0; i < full; i++) APP(BAR); if (part) APP(PART);
+        APP(rst); APP(red);
+        int used = full + (part ? 1 : 0);
+        for (int i = used; i < w; i++) APP(BAR);
+        APP(rst);
+#undef APP
+        int n = snprintf(line+li, sizeof(line)-(size_t)li, " %s/%s %s/s eta %s", f, t, sp, eta);
+        if (n > 0) li += n;
     }
-    /* pad to a fixed width that ALWAYS fits in a normal terminal (~72 cols) so
-     * the frame overwrites in place; ≥200 spaces would wrap on narrow consoles
-     * and that is what makes it look like the bar is spamming many lines. */
-    int L = (int)strlen(line);
-    while (L < 72) line[L++] = ' ';
-    line[L] = '\0';
-    fprintf(stderr, "%s", line);
+    line[li] = '\0';
+    fputs(line, stderr);
     if (done) fputc('\n', stderr);
     fflush(stderr);
 }
