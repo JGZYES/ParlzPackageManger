@@ -87,7 +87,7 @@ char *http_get(const char *url, int *status) {
      * interpretation differences:  body + "__PMM_HTTP_<code>" */
     size_t len = 0;
     if (getenv("PMM_DEBUG")) fprintf(stderr, "[http] GET %s\n", url);
-    char *body = curl_capture("-sSL --max-time 60 -w __PMM_HTTP_%{http_code}", url, &len);
+    char *body = curl_capture("-sSL --max-time 15 --connect-timeout 8 -w __PMM_HTTP_%{http_code}", url, &len);
     if (getenv("PMM_DEBUG")) fprintf(stderr, "[http] captured len=%zu head=%.60s\n",
                                      body ? len : 0, body ? body : "(null)");
     if (!body) return NULL;
