@@ -502,6 +502,10 @@ int pdm_install_file(const char *pdmfile) {
         char line[256], fname[128], expect[128];
         while (fgets(line, sizeof(line), sf)) {
             if (sscanf(line, "%127s  %127s", expect, fname) != 2) continue;
+            /* GNU sha256sum marks binary members (the .tar.gz contain NULs) with
+             * a '*' before the name, e.g. "<hash> *control.tar.gz". Strip it so
+             * the filename resolves; otherwise the check always "mismatches". */
+            if (fname[0] == '*') memmove(fname, fname + 1, strlen(fname));
             char mp[1200];
             snprintf(mp, sizeof(mp), "installed/.stage/%s", fname);
             if (pmm_sha256_file(mp, hex) != 0 || strcasecmp(hex, expect) != 0) {
