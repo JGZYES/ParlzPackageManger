@@ -1,38 +1,31 @@
 <?php
-/* PMM docs site — left sidebar directory + right rendered .md content.
- * URL: docs/index.php?page=<name> (defaults to "index"). */
+/* PMM docs site — scans md/*.md into a left file tree and renders the selected
+ * page on the right. URL: docs/index.php?page=<slug> (defaults to "index"). */
 define('PMM_SITE', 1);
 require dirname(__DIR__) . '/_common.php';
 
-/* doc pages: [slug, title] — grouped sections */
-$groups = [
-    '开始' => [
-        'index'   => '快速开始',
-        'install' => '安装',
-        'download'=> '下载',
-    ],
-    '了解' => [
-        'features' => '核心特性',
-        'cli'      => '命令参考',
-        'mirror'   => '镜像源',
-    ],
-    '社区' => [
-        'translate' => '翻译 / 语言包',
-        'source'    => '源码',
-    ],
-];
-// flatten for page lookup
-$pages = [];
-foreach ($groups as $g => $list) foreach ($list as $slug => $t) $pages[$slug] = $t;
+$mdDir = __DIR__ . '/md';
+
+/* Discover every .md file; title = first "# " line, else the filename. */
+$pages = [];   // slug -> title
+if (is_dir($mdDir)) {
+    foreach (glob($mdDir . '/*.md') as $f) {
+        $slug = basename($f, '.md');
+        $title = $slug;
+        $raw = (string)file_get_contents($f);
+        if (preg_match('/^#\s+(.+)$/m', $raw, $m)) $title = trim($m[1]);
+        $pages[$slug] = $title;
+    }
+}
 
 $page = isset($_GET['page']) ? (string)$_GET['page'] : 'index';
 if (!isset($pages[$page])) $page = 'index';
 $title = $pages[$page];
 
-$mdPath = __DIR__ . '/' . $page . '.md';
 $body = '';
-if (is_file($mdPath)) {
-    $body = (string)file_get_contents($mdPath);
+$f = $mdDir . '/' . $page . '.md';
+if (is_file($f)) {
+    $body = (string)file_get_contents($f);
     $body = str_replace("\r", "", $body);   // md() regex hard-codes \n
     $body = md($body);
 }
@@ -40,11 +33,10 @@ if (is_file($mdPath)) {
 pmm_header('docs', '文档 · ' . $title);
 ?>
 <style>
-/* docs layout — inline so it works regardless of external style.css state */
+/* docs layout — inline, so it works regardless of external style.css state */
 .docs-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;max-width:1160px;margin:0 auto;padding:28px 22px 60px;align-items:start}
 .docs-sidebar{position:sticky;top:14px;min-width:0;border-right:1px solid #282828;padding-right:16px}
 .docs-sidebar-brand{font-weight:700;font-size:15px;color:#fff;padding:0 4px 12px;border-bottom:1px solid #282828;margin-bottom:8px}
-.docs-group{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#555;padding:14px 6px 6px}
 .docs-tree{display:block}
 .docs-tree a.docs-link{display:block;font-size:14px;color:#9a9a9a;text-decoration:none;padding:7px 10px;border-radius:7px;margin:0}
 .docs-tree a.docs-link:hover{color:#fff;background:#101010}
@@ -74,11 +66,8 @@ pmm_header('docs', '文档 · ' . $title);
   <aside class="docs-sidebar">
     <div class="docs-sidebar-brand"><span>PMM 文档</span></div>
     <nav class="docs-tree">
-      <?php foreach ($groups as $g => $list): ?>
-        <div class="docs-group"><?php echo htmlspecialchars($g); ?></div>
-        <?php foreach ($list as $slug => $t): ?>
-          <a class="docs-link<?php echo $slug === $page ? ' active' : ''; ?>" href="index.php?page=<?php echo $slug; ?>"><?php echo htmlspecialchars($t); ?></a>
-        <?php endforeach; ?>
+      <?php foreach ($pages as $slug => $t): ?>
+        <a class="docs-link<?php echo $slug === $page ? ' active' : ''; ?>" href="index.php?page=<?php echo $slug; ?>"><?php echo htmlspecialchars($t); ?></a>
       <?php endforeach; ?>
     </nav>
   </aside>
