@@ -878,6 +878,171 @@ static char *registry_latest_version(const char *pkg) {
     return out;
 }
 
+/* pmm doctor / diagnose — one-shot health check that prints actionable fixes
+ * for the common "install didn't take effect" issues: which binary resolves,
+ * PATH ordering / Windows leak, a flaky mirror, installed-package integrity and
+ * a stale language pack. Read-only: it never changes anything. */
+static int cmd_doctor(void) {
+    char home[1024];
+    pmm_config_dir(home, sizeof(home));
+    int issues = 0;
+
+    /* ---- 1. which binary does `pmm` resolve to & is it the running one ---- */
+    pmm_info("— 二进制解析 —\n");
+    const char *self = pmm_self_path();
+    printf("  当前运行: %s\n", self && *self ? self : "(unknown)");
+    char resolved[1400] = "";
+#ifndef _WIN32
+    FILE *f = popen("command -v pmm 2>/dev/null", "r");
+    if (f) { if (fgets(resolved, sizeof(resolved), f)) { size_t l = strlen(resolved);
+                while (l && (resolved[l-1]=='\n' || resolved[l-1]=='\r')) resolved[--l]=0; } pclose(f); }
+#else
+    FILE *f = popen("where pmm 2>nul", "r");
+    if (f) { if (fgets(resolved, sizeof(resolved), f)) { size_t l = strlen(resolved);
+                while (l && (resolved[l-1]=='\n' || resolved[l-1]=='\r')) resolved[--l]=0; } pclose(f); }
+#endif
+    if (resolved[0]) {
+        printf("  PATH 解析: %s\n", resolved);
+        if (self && *self && strcmp(resolved, self) == 0) {
+            printf("  [OK] 命中的就是当前运行的 pmm\n");
+        } else {
+            pmm_warn("  [X] PATH 里另有一个 pmm (%s)，而当前运行的是 %s\n", resolved, self ? self : "?");
+            printf("      修复: hash -r；若仍不对，把 %s 所在目录放到 PATH 前面（export PATH=\"<dir>:$PATH\"）\n",
+                   self ? self : "");
+            issues++;
+        }
+    } else {
+        pmm_warn("  [X] PATH 中找不到 pmm（请把安装目录加入 PATH）\n");
+        issues++;
+    }
+
+    /* ---- 2. Windows /mnt PATH leak ---- */
+    pmm_info("— PATH 顺序 / Windows 泄漏 —\n");
+    {
+        const char *path = getenv("PATH");
+        char tmp[16384];
+        snprintf(tmp, sizeof(tmp), "%s", path ? path : "");
+        int leak = 0;
+        char *save = NULL;
+        for (char *t = strtok(tmp, ":"); t; t = strtok(NULL, ":")) {
+            if (strncmp(t, "/mnt/", 5) == 0 && strstr(t, "pmm")) {
+                pmm_warn("  [X] PATH 含 Windows 泄漏目录: %s\n", t);
+                printf("      说明: Windows 侧装的 pmm 被 WSL 继承。修复: 在 Windows 移除该 PATH 项，"
+                       "或将 ~/.local/bin 放到其前面\n");
+                leak = 1; issues++;
+            }
+        }
+        if (!leak) printf("  [OK] PATH 未发现 /mnt 下的 pmm 泄漏\n");
+    }
+
+    /* ---- 3. mirror reachability ---- */
+    pmm_info("— 镜像源可达性 —\n");
+    {
+        char path2[1200];
+        snprintf(path2, sizeof(path2), "%s/mirror.ini", home);
+        Ini *ini = ini_load(path2);
+        if (!ini || !ini->head) {
+            pmm_warn("  [X] 未配置镜像 (%s)\n", path2);
+            printf("      修复: pmm setting mirror add <名字> <registry 地址>，或用 install.sh 生成默认镜像\n");
+            issues++;
+        } else {
+            printf("  %s\n", path2);
+            char lastsec[512] = "";
+            int okcount = 0, total = 0, defbad = 0;
+            for (IniEntry *e = ini->head; e; e = e->next) {
+                if (!*e->section) continue;
+                if (strcmp(e->section, lastsec) == 0) continue;
+                strncpy(lastsec, e->section, sizeof(lastsec)-1);
+                const char *reg = ini_get(ini, e->section, "registry");
+                const char *pri = ini_get(ini, e->section, "priority");
+                const char *def = ini_get(ini, e->section, "default");
+                if (!reg || !*reg) continue;
+                total++;
+                char url[2048];
+                snprintf(url, sizeof(url), "%s/packages.json", reg);
+                int st = 0;
+                char *body = http_get(url, &st);
+                int ok = (body && st != 404 && st != 403 && st != 503 && st != 0);
+                free(body);
+                int isdef = def && strcmp(def, "true") == 0;
+                printf("  [%s] pri=%s %s%s  %s\n", e->section, pri ? pri : "-", reg,
+                       isdef ? " (default)" : "", ok ? "OK" : st == 404 ? "404/not-found"
+                       : st == 0 ? "unreachable" : "HTTP->" );
+                if (ok) okcount++; else if (isdef) defbad = 1;
+            }
+            ini_free(ini);
+            printf("  结果: %d/%d 可达\n", okcount, total);
+            if (defbad) { pmm_warn("  [X] 默认/优先镜像不可达 — 修复: pmm setting mirror <健康镜像名>\n"); issues++; }
+            if (total == 0) { pmm_warn("  [X] 没有可探测的镜像\n"); issues++; }
+        }
+    }
+
+    /* ---- 4. installed package integrity ---- */
+    pmm_info("— 已装包完整性 —\n");
+    {
+        char db[1200], root[1200];
+        snprintf(db, sizeof(db), "%s/installed", home);
+        snprintf(root, sizeof(root), "%s/root", home);
+        char files[128][1400];
+        int n = list_info_files(db, files, 128);
+        if (n == 0) { printf("  (无已装包)\n"); }
+        else {
+            int bad = 0;
+            for (int i = 0; i < n; i++) {
+                char info[4096];
+                FILE *fp = fopen(files[i], "rb");
+                if (!fp) continue;
+                size_t g = fread(info, 1, sizeof(info)-1, fp); fclose(fp); info[g] = 0;
+                char pkg[256], ver[128];
+                installed_version(info, pkg, sizeof(pkg), ver, sizeof(ver));
+                if (!pkg[0]) continue;
+                char bin[1400];
+                snprintf(bin, sizeof(bin), "%s/bin/%s", root, pkg);
+                FILE *bf = fopen(bin, "rb");
+                if (!bf) {
+                    pmm_warn("  [X] %s %s 缺可执行主文件 %s\n", pkg, ver ? ver : "", bin);
+                    printf("      修复: pmm remove %s && pmm install %s\n", pkg, pkg);
+                    bad++; issues++;
+                } else {
+                    fclose(bf);
+                    printf("  [OK] %s %s\n", pkg, ver ? ver : "");
+                }
+            }
+            if (bad == 0) printf("  (%d 个已装包均完整)\n", n - bad);
+        }
+    }
+
+    /* ---- 5. language pack ---- */
+    pmm_info("— 语言包 —\n");
+    {
+        char loc[64];
+        snprintf(loc, sizeof(loc), "%s", pmm_lang_locale());
+        char lp[1400];
+        snprintf(lp, sizeof(lp), "%s/lang/%s.pjson", home, loc);
+        FILE *fp = fopen(lp, "rb");
+        if (!fp) { pmm_warn("  [X] 语言包 %s 缺失 — 修复: pmm setting lang %s\n", lp, loc); issues++; }
+        else {
+            char buf[65536]; size_t g = fread(buf, 1, sizeof(buf)-1, fp); fclose(fp); buf[g] = 0;
+            JsonValue *root = json_parse(buf);
+            if (!root) { pmm_warn("  [X] 语言包 %s 无法解析 — 修复: pmm setting lang %s\n", lp, loc); issues++; }
+            else {
+                static const char *probes[] = { "msg.self-up-to-date", "desc.clean", "msg.err.conflict", NULL };
+                int miss = 0;
+                for (int i = 0; probes[i]; i++) if (!json_str(root, probes[i])) miss++;
+                if (miss) {
+                    pmm_warn("  [X] 语言包偏旧 (%s)，缺 %d 个新 key — 修复: pmm setting lang %s\n", lp, miss, loc);
+                    issues++;
+                } else printf("  [OK] %s\n", lp);
+                json_free(root);
+            }
+        }
+    }
+
+    printf("\n");
+    pmm_success("%s", issues == 0 ? "doctor: 一切正常 ✔" : pmm_tr_fmt("msg.doctor-issues", issues));
+    return issues == 0 ? 0 : 1;
+}
+
 static void print_help(void) {
     printf("PMM %s (%s)\n\n", PMM_VERSION, pmm_detect_arch());
     printf("%s\n", pmm_tr("help.usage"));
@@ -890,6 +1055,7 @@ static void print_help(void) {
     printf("  %-32s%s\n", "pmm setting mirror ...   ", pmm_tr("desc.mirror"));
     printf("  %-32s%s\n", "pmm self-update          ", pmm_tr("desc.self-update"));
     printf("  %-32s%s\n", "pmm clean               ", pmm_tr("desc.clean"));
+    printf("  %-32s%s\n", "pmm doctor              ", pmm_tr("desc.doctor"));
     printf("  %-32s%s\n", "pmm version | help       ", pmm_tr("desc.help"));
     printf("\n%s\n", pmm_tr("help.options"));
     printf("  %-32s%s\n", "-p<drive>  ", pmm_tr("opt.p-drive"));
@@ -1204,6 +1370,9 @@ int main(int argc, char **argv) {
 
     if (strcmp(argv[1], "clean") == 0)
         return cmd_clean();
+
+    if (strcmp(argv[1], "doctor") == 0 || strcmp(argv[1], "diagnose") == 0)
+        return cmd_doctor();
 
     if (strcmp(argv[1], "update") == 0)
         return cmd_update();

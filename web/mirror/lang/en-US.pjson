@@ -128,5 +128,7 @@
   "msg.dep-satisfied": "dependency %s%s%s already installed/provided, skipped",
   "msg.err.conflict": "cannot install %s: conflicts with installed %s",
   "msg.cache-cleared": "cache cleaned: %d files, freed %.1f KB",
-  "msg.self-up-to-date": "already up to date (v%s, latest v%s), skipping upgrade"
+  "msg.self-up-to-date": "already up to date (v%s, latest v%s), skipping upgrade",
+  "desc.doctor": "diagnose",
+  "msg.doctor-issues": "doctor: found %d issue(s)"
 }

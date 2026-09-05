@@ -128,5 +128,7 @@
   "msg.dep-satisfied": "依赖 %s%s%s 已装/被提供,跳过",
   "msg.err.conflict": "无法安装 %s:与已装的 %s 冲突",
   "msg.cache-cleared": "已清理缓存: %d 个文件，释放 %.1f KB",
-  "msg.self-up-to-date": "当前 v%s 已是最新（v%s），跳过升级"
+  "msg.self-up-to-date": "当前 v%s 已是最新（v%s），跳过升级",
+  "desc.doctor": "诊断",
+  "msg.doctor-issues": "doctor: 发现 %d 个问题"
 }

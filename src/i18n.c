@@ -54,7 +54,7 @@ static const char *kBuiltinZh =
 "\"msg.hash-sha256\":\"sha256: %s\",\"msg.hash-sha1\":\"sha1: %s\","
 "\"msg.installing\":\"正在安装 %s ...\",\"msg.installed\":\"已安装 %s\","
 "\"msg.checksum-ok\":\"%s 校验 OK: %s\",\"msg.checksum-mismatch\":\"校验不匹配 (%s)!\","
-"\"msg.resolving-dep\":\"正在解析依赖 %s%s%s\",\"msg.dep-satisfied\":\"依赖 %s%s%s 已装/被提供,跳过\",\"msg.registry-ok\":\"注册表 sha256 OK: %s\",\"msg.cache-cleared\":\"已清理缓存: %d 个文件，释放 %.1f KB\",\"msg.self-up-to-date\":\"当前 v%s 已是最新（v%s），跳过升级\","
+"\"msg.resolving-dep\":\"正在解析依赖 %s%s%s\",\"msg.dep-satisfied\":\"依赖 %s%s%s 已装/被提供,跳过\",\"msg.registry-ok\":\"注册表 sha256 OK: %s\",\"msg.cache-cleared\":\"已清理缓存: %d 个文件，释放 %.1f KB\",\"msg.doctor-issues\":\"doctor: 发现 %d 个问题\",\"msg.self-up-to-date\":\"当前 v%s 已是最新（v%s），跳过升级\","
 "\"msg.path-exists\":\"PATH 已包含 PMM 目录\",\"msg.err.registry-not-found\":\"找不到软件包 '%s'\","
 "\"msg.pmm-self-replaced\":\"pmm 已更新到 %s\",\"msg.pmm-self-hint\":\"无法覆盖 %s（需 root/管理员）;新版本在 %s。请将其加入 PATH 并在当前 shell 运行 hash -r\","
 "\"msg.err.usage\":\"用法\",\"msg.err.unknown-cmd\":\"未知命令 '%s' (试试 'pmm help')\","
@@ -63,7 +63,7 @@ static const char *kBuiltinZh =
 "\"msg.err.no-registry-mirror\":\"没有配置注册表镜像\",\"msg.err.cannot-write\":\"无法写入 %s\","
 "\"desc.install\":\"安装\",\"desc.remove\":\"卸载\",\"desc.update\":\"刷新索引\","
 "\"desc.upgrade\":\"升级\",\"desc.mirror\":\"镜像源\",\"desc.search\":\"搜索\","
-"\"desc.info\":\"详情\",\"desc.self-update\":\"更新自身\",\"desc.clean\":\"清理缓存\",\"desc.help\":\"帮助\","
+"\"desc.info\":\"详情\",\"desc.self-update\":\"更新自身\",\"desc.clean\":\"清理缓存\",\"desc.doctor\":\"诊断\",\"desc.help\":\"帮助\","
 "\"opt.p-drive\":\"安装盘符\",\"opt.no-color\":\"禁用颜色\",\"opt.quiet\":\"静默\","
 "\"opt.verbose\":\"详情\"}";
 
