@@ -113,6 +113,10 @@ static const char *home_dir(void) {
 static char g_drive[4] = "";   /* "D", or "" = use home */
 static char g_base_path[1024] = ""; /* exact install base, or "" */
 
+/* Set by pdm_install_file from pdm-control (LibraryPath / InstallDir). */
+int pmm_libpath_wanted = 0;
+char pmm_install_subdir[256] = "";
+
 static const char *drive_state_path(char *buf, size_t size) {
     snprintf(buf, size, "%s/.pmm/install-drive", home_dir());
     return buf;
@@ -366,6 +370,17 @@ void pmm_add_to_path(void) {
     }
 #endif
 
+    /* A package may declare an install subdir (pdm-control InstallDir): also put
+     * its <subdir>/bin on PATH if it holds executables. */
+    if (pmm_install_subdir[0]) {
+        char subbin[1400];
+        snprintf(subbin, sizeof(subbin), "%s/%s/bin", base, pmm_install_subdir);
+        if (dir_has_exec(subbin)) add_path_candidate(list, &n, 160, subbin);
+        char subcmd[1400];
+        snprintf(subcmd, sizeof(subcmd), "%s/%s/cmd", base, pmm_install_subdir);
+        if (dir_has_exec(subcmd)) add_path_candidate(list, &n, 160, subcmd);
+    }
+
     /* read current user PATH */
     char cur[16384] = "";
 #ifdef _WIN32
@@ -435,14 +450,18 @@ void pmm_add_to_path(void) {
         if (f) {
             fprintf(f, "\n# PMM PATH\n");
             for (int i = 0; i < n; i++) if (list[i][0]) fprintf(f, "export PATH=\"%s:$PATH\"\n", list[i]);
-            /* Shared libraries installed by PMM live under <home>/root/lib;
-             * make them findable by dynamically-linked tools automatically. */
-            fprintf(f, "\n# PMM shared library path\n");
-            if (pmm_flat_mode())
-                fprintf(f, "export LD_LIBRARY_PATH=\"%s/lib:%LD_LIBRARY_PATH\"\n", home);
-            else
-                fprintf(f, "export LD_LIBRARY_PATH=\"%s/root/lib:%s/root/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH\"\n",
-                        home, home);
+            /* If the package opted in (pdm-control: LibraryPath=true), make its
+             * lib dir findable by dynamically-linked tools automatically. */
+            if (pmm_libpath_wanted) {
+                char libdir[1400];
+                if (pmm_install_subdir[0])
+                    snprintf(libdir, sizeof(libdir), "%s/%s/lib", base, pmm_install_subdir);
+                else
+                    snprintf(libdir, sizeof(libdir), "%s/lib", base);
+                fprintf(f, "\n# PMM shared library path\n");
+                fprintf(f, "export LD_LIBRARY_PATH=\"%s:%s/x86_64-linux-gnu:$LD_LIBRARY_PATH\"\n",
+                        libdir, libdir);
+            }
             fclose(f);
         }
         (void)she;

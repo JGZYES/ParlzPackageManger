@@ -9,6 +9,12 @@
  * On Windows persists via the user registry PATH; on Unix appends to shell rc. */
 void pmm_add_to_path(void);
 
+/* Set by the .pdm installer from pdm-control (LibraryPath/InstallDir) before
+ * calling pmm_add_to_path: whether to export the package's lib dir on
+ * LD_LIBRARY_PATH, and an optional install subdir under the PMM root. */
+extern int pmm_libpath_wanted;
+extern char pmm_install_subdir[256];
+
 /* Set the install location by drive letter ("D" -> D:\.pmm). An empty string
  * clears back to the user-home default. Persisted across runs. */
 void pmm_set_install_drive(const char *letter);

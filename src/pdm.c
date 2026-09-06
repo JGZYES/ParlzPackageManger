@@ -540,6 +540,23 @@ int pdm_install_file(const char *pdmfile) {
         chdir_restore(); remove(tmpname); return -1;
     }
 
+    /* pdm-control knobs: LibraryPath (auto-add lib dir to LD_LIBRARY_PATH) and
+     * InstallDir (optional install subdir under the PMM root). */
+    pmm_libpath_wanted = 0;
+    pmm_install_subdir[0] = 0;
+    char *libp = control_get(ctl, "LibraryPath");
+    if (libp && libp[0]) { pmm_libpath_wanted = (strcmp(libp, "true") == 0 || strcmp(libp, "1") == 0); free(libp); }
+    char *inst = control_get(ctl, "InstallDir");
+    if (inst && *inst) {
+        /* keep it relative & safe (no .., no leading /) */
+        size_t il = strlen(inst);
+        if (il >= sizeof(pmm_install_subdir)) il = sizeof(pmm_install_subdir) - 1;
+        memcpy(pmm_install_subdir, inst, il); pmm_install_subdir[il] = 0;
+        for (char *q = pmm_install_subdir; *q; q++) if (*q == '\\') *q = '/';
+        if (pmm_install_subdir[0] == '/' || strstr(pmm_install_subdir, "..")) pmm_install_subdir[0] = 0;
+        free(inst);
+    }
+
     /* reject an install that would conflict with a package already present */
     char *confl = control_get(ctl, "Conflicts");
     if (confl && *confl && any_installed_conflict(confl)) {
@@ -551,6 +568,12 @@ int pdm_install_file(const char *pdmfile) {
 
     /* extract data into root (relative target: cwd is already the pm dir) */
     const char *tgt = flat ? "." : "root";
+    char tgtbuf[1400];
+    if (!flat && pmm_install_subdir[0]) {
+        snprintf(tgtbuf, sizeof(tgtbuf), "root/%s", pmm_install_subdir);
+        tgt = tgtbuf;
+    }
+    mkdir_p(tgt);               /* ensure the target dir exists before -C */
     /* If the package is pmm itself, its exe is the currently running binary and
      * Windows/locked images can't be overwritten by tar. Move it aside first so
      * the new binary can be written; restore on failure. */
@@ -622,6 +645,8 @@ int pdm_install_file(const char *pdmfile) {
     }
 
     pmm_add_to_path();  /* auto-put PMM dirs (e.g. root/nodejs) on PATH */
+    pmm_libpath_wanted = 0;      /* don't leak the LibraryPath/InstallDir to later installs */
+    pmm_install_subdir[0] = 0;
 
 #ifndef _WIN32
     /* On Linux/macOS, mark anything in <root>/bin executable. Windows doesn't

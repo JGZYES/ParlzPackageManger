@@ -78,7 +78,13 @@ Version: 1.0.0
 Architecture: linux
 Description: My app
 Maintainer: you@mail.com
+# 可选:
+# LibraryPath: true   # 装到 ~/.pmm/root 后，自动把本包 lib/ 加入 LD_LIBRARY_PATH（新 shell 生效）
+# InstallDir: tools/myapp   # 把本包装到 ~/.pmm/root/tools/myapp (bin -> .../bin, lib -> .../lib)
 ```
+
+> `LibraryPath` 默认 `false`（不加）；`true` 时 pmm 会在 `~/.bashrc` 写入本包 lib 目录的
+> `LD_LIBRARY_PATH`。`InstallDir` 可把包装到 `~/.pmm/root/<子目录>`，该目录下的 `bin` 也会进 PATH。
 
 打包：
 
