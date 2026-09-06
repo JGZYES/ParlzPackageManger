@@ -435,6 +435,14 @@ void pmm_add_to_path(void) {
         if (f) {
             fprintf(f, "\n# PMM PATH\n");
             for (int i = 0; i < n; i++) if (list[i][0]) fprintf(f, "export PATH=\"%s:$PATH\"\n", list[i]);
+            /* Shared libraries installed by PMM live under <home>/root/lib;
+             * make them findable by dynamically-linked tools automatically. */
+            fprintf(f, "\n# PMM shared library path\n");
+            if (pmm_flat_mode())
+                fprintf(f, "export LD_LIBRARY_PATH=\"%s/lib:%LD_LIBRARY_PATH\"\n", home);
+            else
+                fprintf(f, "export LD_LIBRARY_PATH=\"%s/root/lib:%s/root/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH\"\n",
+                        home, home);
             fclose(f);
         }
         (void)she;
