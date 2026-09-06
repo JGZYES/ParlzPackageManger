@@ -597,6 +597,34 @@ int pdm_install_file(const char *pdmfile) {
         flatten_bin(".");   /* cwd = the install address in flat mode */
     }
 
+    /* system-install mode (default, no -p): route the staged files to system
+     * destinations (ELF->/usr/bin, .so->system lib dir, etc->/etc/pmm/<pkg>,
+     * else->/usr/share/pmm/<pkg>) and record the absolute dest paths for remove. */
+    int sys_mode = (!flat && pmm_system_mode());
+    char destfile[1500];
+    if (sys_mode) {
+        snprintf(destfile, sizeof(destfile), "%s/.pmm-dests.txt", home);
+        char cmd2[9000];
+        snprintf(cmd2, sizeof(cmd2),
+            "DESTFILE=\"%s\"; cd \"%s\" && : > \"$DESTFILE\" && "
+            "MULTI=$(uname -m | sed 's/x86_64/x86_64-linux-gnu/; s/aarch64/aarch64-linux-gnu/; s/armv7l/arm-linux-gnueabihf/'); "
+            "[ -n \"$MULTI\" ] || MULTI=x86_64-linux-gnu; "
+            "find . -type f | while IFS= read -r f; do "
+            "rel=${f#./}; "
+            "case \"$rel\" in "
+            "bin/*) d=\"/usr/bin/${rel#bin/}\"; mkdir -p \"$(dirname \"$d\")\"; mv -f \"$f\" \"$d\"; echo \"$d\" >> \"$DESTFILE\";; "
+            "lib/*) d=\"/usr/lib/${rel#lib/}\"; mkdir -p \"$(dirname \"$d\")\"; mv -f \"$f\" \"$d\"; echo \"$d\" >> \"$DESTFILE\";; "
+            "etc/*) d=\"/etc/pmm/%s/${rel#etc/}\"; mkdir -p \"$(dirname \"$d\")\"; mv -f \"$f\" \"$d\"; echo \"$d\" >> \"$DESTFILE\";; "
+            "usr/*) d=\"/usr/${rel#usr/}\"; mkdir -p \"$(dirname \"$d\")\"; mv -f \"$f\" \"$d\"; echo \"$d\" >> \"$DESTFILE\";; "
+            "*) d=\"/usr/share/pmm/%s/$rel\"; mkdir -p \"$(dirname \"$d\")\"; mv -f \"$f\" \"$d\"; echo \"$d\" >> \"$DESTFILE\";; "
+            "esac; done; ldconfig 2>/dev/null || true; "
+            "chmod -f +x /usr/bin/* >/dev/null 2>&1 || true",
+            destfile, root, pkg, pkg);
+        if (system(cmd2) != 0) {
+            pmm_warn("%s", pmm_tr_fmt("msg.warn.system-route", pkg));
+        }
+    }
+
     /* record file list + control in db */
     snprintf(cmd, sizeof(cmd), "%s/%s.info", db, pkg);
     FILE *dbf = fopen(cmd, "wb"); /* binary: keep \n, avoid Windows CRLF translation */
@@ -604,22 +632,33 @@ int pdm_install_file(const char *pdmfile) {
         fprintf(dbf, "Package: %s\nVersion: %s\nSource: %s\n\n%s\n",
                 pkg, ver ? ver : "0.0.0", base_name(pdmfile), ctl);
         fprintf(dbf, "Files:\n");
-        char ltcmd[2600];
-        snprintf(ltcmd, sizeof(ltcmd), "tar -tzf \"%s/data.tar.gz\"", stage);
-        FILE *tf = PMM_POPEN_READ(ltcmd);
-        if (tf) {
-            char ln[2048];
-            while (fgets(ln, sizeof(ln), tf)) {
-                if (flat) { /* reflection of the flatten: strip a leading bin/ */
-                    const char *q = ln;
-                    while (*q==' '||*q=='\t') q++;
-                    if (q[0]=='.'&&q[1]=='/'&&strncasecmp(q+2,"bin/",4)==0) { ln[0]='\0'; continue; }
-                }
-                fputs(ln, dbf);
+        if (sys_mode) {
+            FILE *df = fopen(destfile, "r");
+            if (df) {
+                char ln[2048];
+                while (fgets(ln, sizeof(ln), df)) fputs(ln, dbf);
+                fclose(df);
+            } else {
+                pmm_warn(pmm_tr("msg.warn.no-filelist"));
             }
-            PMM_PCLOSE_READ(tf);
         } else {
-            pmm_warn(pmm_tr("msg.warn.no-filelist"));
+            char ltcmd[2600];
+            snprintf(ltcmd, sizeof(ltcmd), "tar -tzf \"%s/data.tar.gz\"", stage);
+            FILE *tf = PMM_POPEN_READ(ltcmd);
+            if (tf) {
+                char ln[2048];
+                while (fgets(ln, sizeof(ln), tf)) {
+                    if (flat) { /* reflection of the flatten: strip a leading bin/ */
+                        const char *q = ln;
+                        while (*q==' '||*q=='\t') q++;
+                        if (q[0]=='.'&&q[1]=='/'&&strncasecmp(q+2,"bin/",4)==0) { ln[0]='\0'; continue; }
+                    }
+                    fputs(ln, dbf);
+                }
+                PMM_PCLOSE_READ(tf);
+            } else {
+                pmm_warn(pmm_tr("msg.warn.no-filelist"));
+            }
         }
         fclose(dbf);
     }
@@ -747,7 +786,8 @@ int pdm_remove(const char *name) {
                 char *p = path;
                 while (p[0] == '.' && p[1] == '/') p += 2;
                 char full[1200];
-                snprintf(full, sizeof(full), "%s/%s", root, p);
+                if (p[0] == '/') { snprintf(full, sizeof(full), "%s", p); }        /* system-mode absolute dest */
+                else snprintf(full, sizeof(full), "%s/%s", root, p);
                 remove(full);
                 n++;
             }

@@ -137,5 +137,6 @@
   "msg.err.not-cached": "%s 未在缓存中（先运行 pmm fetch）",
   "msg.postinst-ok": "安装后脚本执行成功: %s",
   "msg.warn.postinst": "安装后脚本返回非 0: %s",
-  "msg.warn.postinst-missing": "安装后脚本缺失: %s"
+  "msg.warn.postinst-missing": "安装后脚本缺失: %s",
+  "msg.warn.system-route": "安装后路由到系统路径时部分失败: %s"
 }

@@ -149,6 +149,16 @@ void pmm_set_install_path(const char *path) {
 }
 int pmm_flat_mode(void) { return g_base_path[0] ? 1 : 0; }
 
+/* System-install mode: unix default (no -p <path>). Writes to /usr/bin, /etc/pmm,
+ * the system lib dir and /usr/share/pmm — no PATH/LD_LIBRARY_PATH needed. */
+int pmm_system_mode(void) {
+#ifdef _WIN32
+    return 0;                     /* Windows always uses local mode */
+#else
+    return g_base_path[0] ? 0 : 1;
+#endif
+}
+
 /* Resolve the .pmm base dir: explicit drive override > persisted drive >
  * home/.pmm (when that drive is picked) > DEFAULT = D:\.pmm.
  * Defaulting to D:\ spares the C: drive (user's primary diskspace concern);
@@ -188,7 +198,7 @@ static const char *pmm_base_dir(char *buf, size_t size) {
 #ifdef _WIN32
         snprintf(buf, size, "D:\\.pmm");                      /* Windows DEFAULT -> D: */
 #else
-        snprintf(buf, size, "%s/.pmm", home_dir());           /* unix default -> ~/.pmm */
+        snprintf(buf, size, "/etc/pmm");                      /* unix default -> system config dir */
 #endif
     }
     return buf;
@@ -201,6 +211,7 @@ const char *pmm_config_dir(char *buf, size_t size) {
 }
 
 const char *pmm_cache_dir(char *buf, size_t size) {
+    if (pmm_system_mode()) { snprintf(buf, size, "/var/cache/pmm"); mkdir_p(buf); return buf; }
     char base[1024];
     pmm_base_dir(base, sizeof(base));
     snprintf(buf, size, "%s/cache", base);
@@ -219,7 +230,7 @@ const char *pmm_install_dir(char *buf, size_t size) {
         pmm_base_dir(base, sizeof(base));
         snprintf(buf, size, "%s/bin", base);      /* Windows default -> <base>\bin */
 #else
-        snprintf(buf, size, "/usr/local/bin");     /* Linux/macOS default -> system-wide (on PATH) */
+        snprintf(buf, size, "/usr/bin");           /* Linux/macOS default -> system-wide (on PATH) */
 #endif
     }
     mkdir_p(buf);
@@ -300,6 +311,7 @@ static void add_path_candidate(char list[][1200], int *n, int max, const char *d
 }
 
 void pmm_add_to_path(void) {
+    if (pmm_system_mode()) return;   /* system mode: /usr/bin & system libs are already found */
     char home[1024];
     pmm_config_dir(home, sizeof(home));
     char base[1024];

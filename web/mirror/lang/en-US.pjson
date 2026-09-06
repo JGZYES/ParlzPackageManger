@@ -137,5 +137,6 @@
   "msg.err.not-cached": "%s not in cache (run pmm fetch)",
   "msg.postinst-ok": "post-install script ran OK: %s",
   "msg.warn.postinst": "post-install script returned non-zero: %s",
-  "msg.warn.postinst-missing": "post-install script missing: %s"
+  "msg.warn.postinst-missing": "post-install script missing: %s",
+  "msg.warn.system-route": "some files failed to route to system paths: %s"
 }

@@ -27,6 +27,10 @@ void pmm_set_install_path(const char *path);
  * into that directory (files flattened), without a root/bin sub-folder. */
 int pmm_flat_mode(void);
 
+/* 1 if running in system-install mode (unix default, no -p): files go to
+ * /usr/bin, /etc/pmm, the system lib dir; no PATH/LD_LIBRARY_PATH is written. */
+int pmm_system_mode(void);
+
 /* File-association record written to the per-user registry on install. */
 typedef struct {
     const char *progid;    /* e.g. "Node.JSFile" */
