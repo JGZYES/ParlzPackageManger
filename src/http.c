@@ -14,6 +14,7 @@
 #define PMM_POPEN_READ_X(cmd) _popen(cmd, "rb")   /* binary: download streams */
 #define PMM_PCLOSE_READ_X(p) _pclose(p)
 #define STDERR_FD _fileno(stderr)
+#define STDOUT_FD _fileno(stdout)
 #define IS_TTY(fd) _isatty(fd)
 #else
 #include <unistd.h>
@@ -24,6 +25,7 @@
 #define PMM_POPEN_READ_X(cmd) popen(cmd, "r")
 #define PMM_PCLOSE_READ_X(p) pclose(p)
 #define STDERR_FD fileno(stderr)
+#define STDOUT_FD fileno(stdout)
 #define IS_TTY(fd) isatty(fd)
 #endif
 
@@ -146,7 +148,7 @@ static void hms(double sec, char *out, size_t n) {
 /* python-style bar, ASCII-safe (no unicode block glyphs, so it can't mojibake
  * on GBK/936 or other non-UTF-8 Windows console codepages):
  *   93%|##############--------| 36.1MB/38.8MB [01:30<00:05, 560.7KB/s] */
-static void render_progress(unsigned long long fetched, unsigned long long total,
+static void render_progress(FILE *out, unsigned long long fetched, unsigned long long total,
                             double elapsed, double speed, int done) {
     int w = 40;                          /* bar width in columns */
     char line[320]; int li = 0;
@@ -187,9 +189,9 @@ static void render_progress(unsigned long long fetched, unsigned long long total
         if (n > 0) li += n;
     }
     line[li] = '\0';
-    fputs(line, stderr);
-    if (done) fputc('\n', stderr);
-    fflush(stderr);
+    fputs(line, out);
+    if (done) fputc('\n', out);
+    fflush(out);
 }
 
 /* fetch Content-Length (bytes) via HEAD; returns 0 if unknown */
@@ -215,10 +217,13 @@ static unsigned long long remote_size(const char *url) {
 static int download_parallel(const char *url, const char *out, unsigned long long total, int threads);
 
 int http_download(const char *url, const char *out_path) {
-    int tty = IS_TTY(STDERR_FD);
-    if (getenv("PMM_FORCE_PROGRESS")) tty = 1; /* debug/testing override */
+    /* Draw the progress bar on whichever descriptor is a terminal. If stderr is
+     * not a tty (e.g. output captured) but stdout is, paint to stdout so the bar
+     * still shows; if neither is a tty, stay silent (no spam when piped). */
+    FILE *prg = IS_TTY(STDERR_FD) ? stderr : (IS_TTY(STDOUT_FD) ? stdout : NULL);
+    if (getenv("PMM_FORCE_PROGRESS")) prg = stderr; /* debug/testing override */
 
-    if (!tty) {
+    if (!prg) {
         /* background/redirect: silent, simple (with curl resume -C -) */
         size_t cmdlen = strlen(url) * 3 + strlen(out_path) * 3 + 160;
         char *cmd = malloc(cmdlen);
@@ -231,16 +236,10 @@ int http_download(const char *url, const char *out_path) {
         return -1;
     }
 
-    /* terminal: prefer a parallel ranged download (POSIX only) for large files */
+    /* terminal: use a single stream and paint a python-style bar. (For large
+     * files we could parallel-range, but that path is silent, so a visible bar
+     * is worth more than a few extra seconds.) */
     unsigned long long total = remote_size(url);
-#ifdef _WIN32
-    /* no reliable parallel via system() on Windows — use the single stream */
-#else
-    if (total > 0 && total >= 8u * 1024u * 1024u && download_parallel(url, out_path, total, 4) == 0)
-        return 0;
-#endif
-
-    /* single-stream fallback: stream via popen and paint a python-style bar */
     char cmd[2100];
     snprintf(cmd, sizeof(cmd), "curl -sL --fail --retry 3 --max-time 3600 -o - \"%s\"", url);
     FILE *pf = PMM_POPEN_READ_X(cmd);   /* binary read */
@@ -264,12 +263,12 @@ int http_download(const char *url, const char *out_path) {
             last = fetched; last_n = n;
         }
         el = ((double)n - start) / 1000.0;
-        render_progress(fetched, total, el, speed, 0);
+        render_progress(prg, fetched, total, el, speed, 0);
     }
     fclose(outf);
     int rc = PMM_PCLOSE_READ_X(pf);
     if (rc != 0) { remove(out_path); return -1; }
-    render_progress(fetched, total, el, speed, 1);
+    render_progress(prg, fetched, total, el, speed, 1);
     return 0;
 }
 
