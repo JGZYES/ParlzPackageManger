@@ -5,7 +5,8 @@
 #   curl -sSL -o install.sh https://pmm.parlz.com/install.sh && bash install.sh
 #   或：curl -sSL https://pmm.parlz.com/install.sh | bash
 #
-# 下载官方 release 二进制并安装到 /usr/local/bin/pmm（root）或 ~/.local/bin/pmm。
+# 下载官方 release 二进制并安装到 ~/.pmm/root/bin/pmm（与 `pmm install pmm` 自升级同一路径，
+# 避免 install.sh 与 pmm self-update 两处安装“串”）。
 set -e
 VER="0.5.3"
 REPO="JGZYES/ParlzPackageManger"
@@ -38,25 +39,30 @@ fi
 echo ""
 chmod +x "$TMP"
 
-# ---- 安装 ----
-if [ "$(id -u)" = "0" ]; then
-  DEST="/usr/local/bin/pmm"
-else
-  DEST="${HOME}/.local/bin/pmm"
-fi
+# ---- 安装：装到与 `pmm install pmm`(自升级)相同的唯一路径，防止“串” ----
+# pmm 自装/升级把二进制放在 ~/.pmm/root/bin/pmm，这里也用同一处。
+DEST="${HOME}/.pmm/root/bin/pmm"
 mkdir -p "$(dirname "$DEST")"
 cp "$TMP" "$DEST" && chmod +x "$DEST" && rm -f "$TMP"
 
-# ---- 安装完成:检测当前 shell 会解析到哪个 pmm，并给出精确指引 ----
+# ---- 安装完成：确保 ~/.pmm/root/bin 在 PATH（prepend），并给出精确指引 ----
 DEST_DIR="$(dirname "$DEST")"
+
+# 写入 ~/.bashrc（若能写），让以后打开的 shell 优先用这个 pmm。
+RC="$HOME/.bashrc"
+if [ -e "$RC" ] || [ -w "$HOME" ]; then
+  if ! grep -qF "export PATH=\"$DEST_DIR:" "$RC" 2>/dev/null; then
+    printf 'export PATH="%s:$PATH"\n' "$DEST_DIR" >> "$RC" 2>/dev/null || true
+  fi
+fi
+
 case ":$PATH:" in
   *":$DEST_DIR:"*) ;;
-  *) echo "pmm: 请将 $DEST_DIR 加入 PATH（或重新登录 shell）" ;;
+  *) echo "pmm: 当前 shell 请执行: export PATH=\"$DEST_DIR:\$PATH\" && hash -r" ;;
 esac
 
-# bash 可能仍把 pmm 命中在旧路径（如已删除的 ~/.pmm/root/bin/pmm），或命中到
-# WSL 里 >/mnt/ 下 Windows 侧安装的 pmm。子脚本清不了父 shell 缓存，但 command -v
-# 能报出“重新解析 PATH 后”会命中哪个 pmm，据此给出精确的三步操作。
+# bash 可能仍把 pmm 命中在旧路径（如 /usr/local/bin/pmm 或已删除的路径）。
+# 子脚本清不了父 shell 缓存，但 command -v 能报出“重新解析 PATH 后”会命中哪个 pmm。
 hash -r 2>/dev/null || true
 FOUND="$(command -v pmm 2>/dev/null || true)"
 
@@ -70,13 +76,13 @@ if [ -n "$FOUND" ] && [ "$FOUND" != "$DEST" ]; then
   echo "pmm:      (而不是刚安装的 $DEST)"
   case "$FOUND" in
     /mnt/*) echo "pmm:      它在 /mnt/ 下，通常是 Windows 侧安装的 pmm 经由 WSL 的 PATH 被带进来。" ;;
+    /usr/local/bin/*) echo "pmm:      它是系统级 pmm 安装（如需彻底清除可 sudo rm $FOUND）。" ;;
   esac
-  echo "pmm: 请在当前终端执行下面三条，让 WSL 优先用刚装的 Linux 版："
+  echo "pmm: 请在当前终端执行下面三条，让 shell 优先用刚装的版本："
   echo "pmm:"
   echo "pmm:   export PATH=\"$DEST_DIR:\$PATH\""
   echo "pmm:   hash -r"
   echo "pmm:   which pmm && pmm -v"
   echo "pmm:"
-  echo "pmm: 永久生效(写入 ~/.bashrc 后 source)："
-  echo "pmm:   echo 'export PATH=\"$DEST_DIR:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+  echo "pmm: 已写入 $RC（未含时）；新终端无需再设置。"
 fi
