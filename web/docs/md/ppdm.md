@@ -81,10 +81,12 @@ Maintainer: you@mail.com
 # 可选:
 # LibraryPath: true   # 装到 ~/.pmm/root 后，自动把本包 lib/ 加入 LD_LIBRARY_PATH（新 shell 生效）
 # InstallDir: tools/myapp   # 把本包装到 ~/.pmm/root/tools/myapp (bin -> .../bin, lib -> .../lib)
+# InstallScript: bin/postinst.sh   # 安装后自动运行包内脚本(可访问 $PMM_ROOT 环境变量)
 ```
 
 > `LibraryPath` 默认 `false`（不加）；`true` 时 pmm 会在 `~/.bashrc` 写入本包 lib 目录的
 > `LD_LIBRARY_PATH`。`InstallDir` 可把包装到 `~/.pmm/root/<子目录>`，该目录下的 `bin` 也会进 PATH。
+> `InstallScript` 指向包内脚本路径，安装后执行（环境变量 `$PMM_ROOT` = 本包安装目录）。
 
 打包：
 

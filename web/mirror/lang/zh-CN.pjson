@@ -134,5 +134,8 @@
   "desc.cache": "管理缓存",
   "desc.fetch": "预下载到缓存",
   "msg.offline-using-cache": "离线: 使用缓存 %s",
-  "msg.err.not-cached": "%s 未在缓存中（先运行 pmm fetch）"
+  "msg.err.not-cached": "%s 未在缓存中（先运行 pmm fetch）",
+  "msg.postinst-ok": "安装后脚本执行成功: %s",
+  "msg.warn.postinst": "安装后脚本返回非 0: %s",
+  "msg.warn.postinst-missing": "安装后脚本缺失: %s"
 }

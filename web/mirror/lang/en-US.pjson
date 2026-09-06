@@ -134,5 +134,8 @@
   "desc.cache": "manage download cache",
   "desc.fetch": "predownload to cache",
   "msg.offline-using-cache": "offline: using cached %s",
-  "msg.err.not-cached": "%s not in cache (run pmm fetch)"
+  "msg.err.not-cached": "%s not in cache (run pmm fetch)",
+  "msg.postinst-ok": "post-install script ran OK: %s",
+  "msg.warn.postinst": "post-install script returned non-zero: %s",
+  "msg.warn.postinst-missing": "post-install script missing: %s"
 }

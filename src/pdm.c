@@ -668,6 +668,37 @@ int pdm_install_file(const char *pdmfile) {
             pmm_sync_self(nb);
     }
 
+    /* InstallScript: run a script shipped in the package after install (like a
+     * Debian postinst). The script path is relative to the package's install
+     * dir (root, or root/<InstallDir>). */
+    char *post = control_get(ctl, "InstallScript");
+    if (post && *post) {
+        char sroot[1500];
+        if (flat) snprintf(sroot, sizeof(sroot), "%s", home);
+        else if (pmm_install_subdir[0]) snprintf(sroot, sizeof(sroot), "%s/%s", root, pmm_install_subdir);
+        else snprintf(sroot, sizeof(sroot), "%s", root);
+        char spath[1700];
+        snprintf(spath, sizeof(spath), "%s/%s", sroot, post);
+        char cx[1800];
+        snprintf(cx, sizeof(cx), "chmod +x \"%s\" 2>/dev/null || true", spath);
+        system(cx);
+        FILE *xf = fopen(spath, "rb");
+        if (xf) {
+            fclose(xf);
+#ifdef _WIN32
+            _putenv_s("PMM_ROOT", sroot);
+#else
+            setenv("PMM_ROOT", sroot, 1);       /* give the script its install dir */
+#endif
+            int src = system(spath);
+            if (src == 0) pmm_success("%s", pmm_tr_fmt("msg.postinst-ok", spath));
+            else pmm_warn("%s", pmm_tr_fmt("msg.warn.postinst", spath));
+        } else {
+            pmm_warn("%s", pmm_tr_fmt("msg.warn.postinst-missing", spath));
+        }
+        free(post);
+    }
+
     free(pkg); if (ver) free(ver);
     return 0;
 }
