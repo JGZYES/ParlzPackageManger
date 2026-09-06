@@ -1,5 +1,6 @@
 /* out.c - colored/structured console output implementation */
 #include "out.h"
+#include "pmm_err.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -30,6 +31,11 @@ static void pmmsg(FILE *stream, int fd, const char *level, int wrap_color, const
      * this, "[PMM]:[INFO]msg\n" would print a blank line after every message. */
     size_t len = strlen(buf);
     while (len && (buf[len-1] == '\n' || buf[len-1] == '\r')) buf[--len] = '\0';
+    /* never emit an empty error/warn line */
+    if (len == 0 && (strcmp(level, "ERROR") == 0 || strcmp(level, "WARN") == 0)) {
+        snprintf(buf, sizeof(buf), "(no message)");
+        len = strlen(buf);
+    }
 
     int tty = IS_TTY_FD(fd) && !pmm_no_color;
     if (tty && wrap_color)
@@ -42,6 +48,25 @@ void pmm_error(const char *fmt, ...) {
     va_list ap; va_start(ap, fmt);
     pmmsg(stderr, 2, "ERROR", 31, fmt, ap);   /* red */
     va_end(ap);
+}
+
+/* Structured error: [PMM]:[E<code>]: <message>  (hint: <hint>)
+ * Guarantees a non-empty message (falls back to "unknown error"). */
+void pmm_error_c(int code, const char *hint, const char *fmt, ...) {
+    char msg[4096];
+    va_list ap; va_start(ap, fmt);
+    vsnprintf(msg, sizeof(msg), fmt ? fmt : "", ap);
+    va_end(ap);
+    size_t len = strlen(msg);
+    while (len && (msg[len-1] == '\n' || msg[len-1] == '\r')) msg[--len] = '\0';
+    if (len == 0) snprintf(msg, sizeof(msg), "unknown error");
+    if (hint && *hint) {
+        size_t ml = strlen(msg);
+        snprintf(msg + ml, sizeof(msg) - ml, "  (hint: %s)", hint);
+    }
+    int tty = IS_TTY_FD(2) && !pmm_no_color;
+    if (tty) fprintf(stderr, "\033[31m[PMM]:[E%d]:%s\033[0m\n", code, msg);
+    else    fprintf(stderr, "[PMM]:[E%d]:%s\n", code, msg);
 }
 
 void pmm_success(const char *fmt, ...) {

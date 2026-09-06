@@ -14,6 +14,7 @@
 #include "install.h"
 #include "pmm.h"
 #include "out.h"
+#include "pmm_err.h"
 #include "i18n.h"
 #include "http.h"
 #include "json.h"
@@ -123,7 +124,7 @@ static int verify_checksums(const char *url, const char *path, const char *name)
         }
         /* case-insensitive compare */
         if (strcasecmp(expect, hex) != 0) {
-            pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", algos[i].ext, expect, hex));
+            pmm_error_c(PMM_E_CHECKSUM, "文件校验和不匹配, 可能损坏, 重新下载或换镜像", "%s", pmm_tr_fmt("msg.checksum-mismatch", algos[i].ext, expect, hex));
             return -1;
         }
         pmm_success("%s", pmm_tr_fmt("msg.checksum-ok", algos[i].algo == 256 ? "sha256" : "sha1", hex));
@@ -421,7 +422,7 @@ int install_file(const char *url, const char *name) {
     if (pmm_offline) {
         FILE *cf = fopen(path, "rb");
         if (!cf) {
-            pmm_error("%s", pmm_tr_fmt("msg.err.not-cached", name));
+            pmm_error_c(PMM_E_CACHE, "离线模式但本地没有该包缓存, 先联网 'pmm fetch <包名>'", "%s", pmm_tr_fmt("msg.err.not-cached", name));
             return -1;
         }
         fclose(cf);
@@ -445,7 +446,7 @@ int install_file(const char *url, const char *name) {
     free(cands);
     mirrors_free(ml);
     if (ok != 0) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.download-failed", url));
+        pmm_error_c(PMM_E_DOWNLOAD, "检查网络连接或镜像地址, 用 'pmm mirror check' 排障", "%s", pmm_tr_fmt("msg.err.download-failed", url));
         return -1;
     }
     pmm_success("%s", pmm_tr_fmt("msg.downloaded", path));
@@ -457,7 +458,7 @@ int install_file(const char *url, const char *name) {
     if (pmm_sha1_file(path, hex) == 0)
         pmm_info("%s", pmm_tr_fmt("msg.hash-sha1", hex));
     if (verify_checksums(url, path, name) != 0) {
-        pmm_error(pmm_tr("msg.err.checksum-refuse"));
+        pmm_error_c(PMM_E_CHECKSUM, "校验和不匹配, 拒绝安装, 尝试 'pmm fetch --fresh' 重新下载", "%s", pmm_tr("msg.err.checksum-refuse"));
         remove(path);
         return -1;
     }
@@ -499,7 +500,7 @@ static int install_path(const char *path, const char *name) {
         extern int pdm_install_file(const char *path);
         pmm_info("%s", pmm_tr_fmt("msg.installing", bname));
         if (pdm_install_file(path) != 0) {
-            pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", bname));
+            pmm_error_c(PMM_E_INTERNAL, ".pdm 安装失败, 详情见上方错误", "%s", pmm_tr_fmt("msg.err.failed-install", bname));
             return -1;
         }
         pmm_success("%s", pmm_tr_fmt("msg.installed", bname));
@@ -571,7 +572,7 @@ static int install_path(const char *path, const char *name) {
                 "elif command -v alien >/dev/null 2>&1; then sudo alien -i \"%s\"; "
                 "else echo -e \"\\033[31m[PMM]:[ERROR]cannot unpack .rpm (need rpm/cpio)\\033[0m\" 1>&2; exit 1; fi",
                 path, path, path);
-            if (system(cmd) != 0) { pmm_error(pmm_tr("msg.err.failed-install")); return -1; }
+            if (system(cmd) != 0) { pmm_error_c(PMM_E_INTERNAL, "rpm 安装失败, 检查是否缺少 rpm/rpm2cpio", "%s", pmm_tr("msg.err.failed-install")); return -1; }
             (void)dcmd; (void)ct;
 #else
             /* create the (possibly multi-level) stage dir first; pmm_cpio_unpack
@@ -581,18 +582,18 @@ static int install_path(const char *path, const char *name) {
                 char mkstag[1400];
                 snprintf(mkstag, sizeof(mkstag), "mkdir -p \"%s\"", fstage);
                 if (system(mkstag) != 0) {
-                    pmm_error("%s", pmm_tr_fmt("msg.err.rpm-stage", fstage));
+                    pmm_error_c(PMM_E_EXTRACT, "无法创建解包目录, 检查缓存目录权限", "%s", pmm_tr_fmt("msg.err.rpm-stage", fstage));
                     return -1;
                 }
             }
             /* unpack into stage (no sudo needed; stage is user-writable) */
             if (pmm_cpio_unpack_cmd(fstage, dcmd) != 0) {
-                pmm_error("%s", pmm_tr_fmt("msg.err.rpm-decompress", dc));
+                pmm_error_c(PMM_E_EXTRACT, "rpm 解压失败, 可能需要 gzip/zstd 支持", "%s", pmm_tr_fmt("msg.err.rpm-decompress", dc));
                 return -1;
             }
             /* copy the unpacked payload into /, then clean up */
             if (system(cmd) != 0) {
-                pmm_error(pmm_tr("msg.err.rpm-copy"));
+                pmm_error_c(PMM_E_INTERNAL, "rpm 拷贝到系统目录失败(可能权限不足, 需 sudo)", "%s", pmm_tr("msg.err.rpm-copy"));
                 return -1;
             }
             (void)ct;
@@ -656,7 +657,7 @@ static int install_path(const char *path, const char *name) {
 
     pmm_info("%s", pmm_tr_fmt("msg.installing", bname));
     if (run_cmd_quiet(cmd) != 0) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", cmd));
+        pmm_error_c(PMM_E_INTERNAL, "安装命令执行失败, 检查文件格式/权限(系统模式需 sudo)", "%s", pmm_tr_fmt("msg.err.failed-install", cmd));
         return -1;
     }
     pmm_success("%s", pmm_tr_fmt("msg.installed", bname));
@@ -667,9 +668,9 @@ static int install_path(const char *path, const char *name) {
 /* Install a local file by its extension — e.g. `pmm install -dpkg foo.deb`
  * (Linux) or `pmm install -msi foo.msi` (Windows). Returns 0 on success. */
 int install_local_file(const char *path) {
-    if (!path || !*path) { pmm_error(pmm_tr("msg.err.empty-path")); return -1; }
+    if (!path || !*path) { pmm_error_c(PMM_E_USAGE, "请提供要安装的文件路径", "%s", pmm_tr("msg.err.empty-path")); return -1; }
     FILE *chk = fopen(path, "rb");
-    if (!chk) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-open", path)); return -1; }
+    if (!chk) { pmm_error_c(PMM_E_NOT_FOUND, "检查文件路径是否存在且可读", "%s", pmm_tr_fmt("msg.err.cannot-open", path)); return -1; }
     fclose(chk);
     pmm_info("%s", pmm_tr_fmt("msg.installing-file", path));
     return install_path(path, path);
@@ -818,7 +819,8 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         if (ml->items[i].registry && *ml->items[i].registry) has_reg = 1;
 
     if (!has_reg) {
-        pmm_error(
+        pmm_error_c(PMM_E_NO_MIRROR,
+                "配置镜像: 在 ~/.pmm/mirror.ini 添加 [名称] + registry 地址, 或用 'pmm setting mirror add'",
                 "no registry mirror configured. Add to ~/.pmm/mirror.ini:\n"
                 "     [name]\n     registry = https://host/pmm\n"
                 "  (apt-style: mirrors are tried by priority; the first with the\n"
@@ -841,7 +843,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         if (!seen[i] && ml->items[i].registry && *ml->items[i].registry)
             bases[nb++] = ml->items[i].registry;
 
-    if (nb == 0) { pmm_error(pmm_tr("msg.err.no-registry-mirror")); mirrors_free(ml); return -1; }
+    if (nb == 0) { pmm_error_c(PMM_E_NO_MIRROR, "检查镜像配置, 添加可用镜像", "%s", pmm_tr("msg.err.no-registry-mirror")); mirrors_free(ml); return -1; }
 
     /* fetch the <pkg>.json latest pointer (carries the variants list) */
     char url[2048];
@@ -873,14 +875,14 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         if (used) break;
     }
     if (!body) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.registry-not-found", name));
+        pmm_error_c(PMM_E_NOT_FOUND, "检查包名拼写, 或 'pmm search' 搜索; 若确认存在, 可能镜像未同步", "%s", pmm_tr_fmt("msg.err.registry-not-found", name));
         mirrors_free(ml);
         return -1;
     }
     JsonValue *meta = json_parse(body);
     free(body);
     if (!meta || meta->type != JSON_OBJECT) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.bad-registry-entry", name, used_base));
+        pmm_error_c(PMM_E_REGISTRY, "镜像条目损坏, 尝试刷新镜像或切换镜像源", "%s", pmm_tr_fmt("msg.err.bad-registry-entry", name, used_base));
         json_free(meta);
         mirrors_free(ml);
         return -1;
@@ -936,7 +938,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
                 const char *s = json_str(v, "sha256"); free(want_sha); want_sha = s ? strdup(s) : NULL; }
         }
         if (!chosen) {
-            pmm_error("%s", pmm_tr_fmt("msg.no-version", name, osn, arch,
+            pmm_error_c(PMM_E_NOT_FOUND, "当前系统/架构下没有匹配的版本, 或版本约束过于严格", "%s", pmm_tr_fmt("msg.no-version", name, osn, arch,
                     (spec && *spec)) ? " satisfying '" : "", (spec && *spec) ? spec : "");
             json_free(meta); mirrors_free(ml); return -1;
         }
@@ -948,7 +950,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         pmm_info("%s", pmm_tr_fmt("msg.selected", name, json_str(meta, "version"), osn, ""));
     }
     if (!dl) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.registry-entry-no-url", name));
+        pmm_error_c(PMM_E_REGISTRY, "镜像中该条目缺少下载地址(url), 包可能未发布或损坏", "%s", pmm_tr_fmt("msg.err.registry-entry-no-url", name));
         json_free(meta); mirrors_free(ml); return -1;
     }
     char *url_cp = strdup(dl);
@@ -964,7 +966,7 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         snprintf(path, sizeof(path), "%s/%s", cache, file_cp);
         if (pmm_sha256_file(path, hex) == 0) {
             if (strcasecmp(want_sha, hex) != 0) {
-                pmm_error("%s", pmm_tr_fmt("msg.checksum-mismatch", name, want_sha, hex));
+                pmm_error_c(PMM_E_CHECKSUM, "下载文件校验和不匹配, 可能被篡改或损坏, 重新下载", "%s", pmm_tr_fmt("msg.checksum-mismatch", name, want_sha, hex));
                 remove(path);
                 rc = -1;
             } else {

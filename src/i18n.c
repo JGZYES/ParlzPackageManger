@@ -9,6 +9,7 @@
 
 static JsonValue *g_lang = NULL;
 static JsonValue *g_builtin = NULL;
+static JsonValue *g_builtin_alt = NULL;
 static char g_locale[64] = "";
 
 /* Detect locale from LANG / LC_ALL env, else default "zh-CN". */
@@ -92,8 +93,10 @@ int pmm_lang_load_active(void) {
 }
 
 const char *pmm_tr(const char *key) {
-    /* Look up in the loaded pack first, then fall back to the built-in zh-CN
-     * table so a stale .pjson never shows a raw "msg.xxx" key. */
+    /* Look up in the loaded pack first, then the locale-matched built-in, then
+     * the *other* built-in. The zh table is a small subset of the full en table,
+     * so without this last fallback a stale pack or a short zh table would leak
+     * a raw "msg.xxx" key. */
     if (g_lang) {
         const char *t = json_str(g_lang, key);
         if (t) return t;
@@ -101,6 +104,12 @@ const char *pmm_tr(const char *key) {
     if (!g_builtin) g_builtin = json_parse(builtin_source());
     if (g_builtin) {
         const char *b = json_str(g_builtin, key);
+        if (b) return b;
+    }
+    if (!g_builtin_alt)
+        g_builtin_alt = json_parse((builtin_source() == kBuiltinEn) ? kBuiltinZh : kBuiltinEn);
+    if (g_builtin_alt) {
+        const char *b = json_str(g_builtin_alt, key);
         if (b) return b;
     }
     return key;

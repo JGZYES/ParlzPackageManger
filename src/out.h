@@ -26,6 +26,9 @@ extern int pmm_no_color;
 extern int pmm_log_level;
 
 void pmm_error(const char *fmt, ...);
+/* Structured error: [PMM]:[E<code>]: <message>  (hint: <hint>). code is a PMM_E_*.
+ * Guarantees a non-empty message. */
+void pmm_error_c(int code, const char *hint, const char *fmt, ...);
 void pmm_success(const char *fmt, ...);
 void pmm_info(const char *fmt, ...);
 void pmm_warn(const char *fmt, ...);

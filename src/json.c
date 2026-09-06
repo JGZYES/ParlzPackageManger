@@ -1,6 +1,7 @@
 /* json.c - minimal recursive-descent JSON parser (no external deps) */
 #include "json.h"
 #include "out.h"
+#include "pmm_err.h"
 #include "i18n.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +14,7 @@ static JsonValue *parse_value(Parser *ps);
 
 static JsonValue *jnew(JsonType t) {
     JsonValue *v = calloc(1, sizeof(JsonValue));
-    if (!v) { pmm_error(pmm_tr("msg.err.oom")); exit(1); }
+    if (!v) { pmm_error_c(PMM_E_INTERNAL, "内存不足, 请释放一些资源后重试", "%s", pmm_tr("msg.err.oom")); exit(1); }
     v->type = t;
     return v;
 }
@@ -37,7 +38,7 @@ static void jadd(JsonValue *v, char *key, JsonValue *item) {
         if (v->type == JSON_OBJECT)
             v->keys = realloc(v->keys, v->capacity * sizeof(char *));
         if (!v->items || (v->type == JSON_OBJECT && !v->keys)) {
-            pmm_error(pmm_tr("msg.err.oom")); exit(1);
+            pmm_error_c(PMM_E_INTERNAL, "内存不足, 请释放一些资源后重试", "%s", pmm_tr("msg.err.oom")); exit(1);
         }
     }
     if (v->type == JSON_OBJECT) v->keys[v->count] = key;
@@ -49,7 +50,7 @@ static void skip_ws(Parser *ps) {
 }
 
 static void fail(const char *msg) {
-    pmm_error("%s", pmm_tr_fmt("msg.err.json-parse", msg));
+    pmm_error_c(PMM_E_INTERNAL, "JSON 解析失败, 数据可能损坏或被篡改", "%s", pmm_tr_fmt("msg.err.json-parse", msg));
     exit(1);
 }
 

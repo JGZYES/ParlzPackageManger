@@ -11,6 +11,7 @@
  * Config is stored in ~/.ppdm/config (Windows: D:\.ppdm\config).
  */
 #include "out.h"
+#include "pmm_err.h"
 #include "sha256.h"
 #include "pdm.h"
 #include "http.h"
@@ -83,7 +84,7 @@ static void cfg_save_token(const char *token, const char *email) {
     snprintf(g_token, sizeof(g_token), "%s", token ? token : "");
     snprintf(g_email, sizeof(g_email), "%s", email ? email : "");
     FILE *f = fopen(g_cfg, "w");
-    if (!f) { pmm_error("无法写入 %s\n", g_cfg); return; }
+    if (!f) { pmm_error_c(PMM_E_INTERNAL, "检查配置目录是否可写", "无法写入 %s\n", g_cfg); return; }
     fprintf(f, "server = %s\n", g_server);
     fprintf(f, "token  = %s\n", g_token);
     fprintf(f, "email  = %s\n", g_email);
@@ -99,7 +100,7 @@ static int http_post(const char *url, const char *auth, const char *body,
                               auth ? auth : "", file, url); }
     else      { i += snprintf(cmd + i, sizeof(cmd) - (size_t)i, "curl -s -X POST %s -H 'Content-Type: application/json' --data-binary '%s' '%s'",
                               auth ? auth : "", body ? body : "", url); }
-    if (i < 0 || (size_t)i >= sizeof(cmd)) { pmm_error("请求过长\n"); return -1; }
+    if (i < 0 || (size_t)i >= sizeof(cmd)) { pmm_error_c(PMM_E_INTERNAL, "请求内容过长, 请简化输入", "请求过长\n"); return -1; }
     FILE *f = popen(cmd, "r");
     if (!f) return -1;
     size_t got = fread(out, 1, outs - 1, f);
@@ -148,9 +149,9 @@ static void js_err_print(const char *body) {
         if (q && ((size_t)(q - e)) < n) n = (size_t)(q - e);
         if (n >= sizeof(buf)) n = sizeof(buf) - 1;
         memcpy(buf, e, n); buf[n] = 0;
-        pmm_error("%s\n", buf);
+        pmm_error_c(PMM_E_INTERNAL, "服务器返回了错误信息, 请检查账号或服务状态", "%s\n", buf);
     } else {
-        pmm_error("%s\n", body ? body : "(no response)");
+        pmm_error_c(PMM_E_NETWORK, "服务器无响应, 检查网络或服务是否在线", "%s\n", body ? body : "(no response)");
     }
 }
 
@@ -169,7 +170,7 @@ static int captcha(void) {
     fflush(stdout);
     char in[64];
     if (!fgets(in, sizeof(in), stdin)) return 0;
-    if (atoi(in) != ans) { pmm_error("验证错误\n"); return 0; }
+    if (atoi(in) != ans) { pmm_error_c(PMM_E_USAGE, "验证码不对, 请重新输入正确的计算结果", "验证错误\n"); return 0; }
     pmm_success("人机验证通过\n");
     return 1;
 }
@@ -252,9 +253,9 @@ int main(int argc, char **argv) {
 
     /* ---- register ---- */
     if (strcmp(argv[1], "register") == 0) {
-        if (argc < 4) { pmm_error("用法: ppdm register <email> <password>\n"); return 1; }
+        if (argc < 4) { pmm_error_c(PMM_E_USAGE, "用法: ppdm register <邮箱> <密码>", "用法: ppdm register <email> <password>\n"); return 1; }
         const char *email = argv[2], *pass = argv[3];
-        if (strchr(email, '\'') || strchr(pass, '\'')) { pmm_error("邮箱/密码不能含单引号\n"); return 1; }
+        if (strchr(email, '\'') || strchr(pass, '\'')) { pmm_error_c(PMM_E_USAGE, "邮箱/密码不能包含单引号", "邮箱/密码不能含单引号\n"); return 1; }
         if (!captcha()) return 1;
         snprintf(url, sizeof(url), "%s/register.php", g_server);
         char json[1024];
@@ -267,9 +268,9 @@ int main(int argc, char **argv) {
 
     /* ---- login ---- */
     if (strcmp(argv[1], "login") == 0) {
-        if (argc < 4) { pmm_error("用法: ppdm login <email> <password>\n"); return 1; }
+        if (argc < 4) { pmm_error_c(PMM_E_USAGE, "用法: ppdm login <邮箱> <密码>", "用法: ppdm login <email> <password>\n"); return 1; }
         const char *email = argv[2], *pass = argv[3];
-        if (strchr(email, '\'') || strchr(pass, '\'')) { pmm_error("邮箱/密码不能含单引号\n"); return 1; }
+        if (strchr(email, '\'') || strchr(pass, '\'')) { pmm_error_c(PMM_E_USAGE, "邮箱/密码不能包含单引号", "邮箱/密码不能含单引号\n"); return 1; }
         snprintf(url, sizeof(url), "%s/login.php", g_server);
         char json[1024];
         snprintf(json, sizeof(json), "{\"email\":\"%s\",\"password\":\"%s\"}", email, pass);
@@ -305,7 +306,7 @@ int main(int argc, char **argv) {
 
     /* ---- pack <dir> [out] : build a .pdm from a staging dir (pdm-control required) ---- */
     if (strcmp(argv[1], "pack") == 0) {
-        if (argc < 3) { pmm_error("用法: ppdm pack <dir> [out]\n"); return 1; }
+        if (argc < 3) { pmm_error_c(PMM_E_USAGE, "用法: ppdm pack <目录> [输出.pdm]", "用法: ppdm pack <dir> [out]\n"); return 1; }
         return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
     }
 
@@ -319,11 +320,11 @@ int main(int argc, char **argv) {
         PPDM_MKDIR(bdir);
         pmm_info("正在下载最新 ppdm ...\n");
         if (http_download("https://github.com/JGZYES/ParlzPackageManger/releases/latest/download/ppdm", tmp) != 0) {
-            pmm_error("更新下载失败\n"); return 1;
+            pmm_error_c(PMM_E_DOWNLOAD, "检查网络或稍后重试, 也可手动从 release 下载 ppdm", "更新下载失败\n"); return 1;
         }
         chmod(tmp, 0755);   /* ignore result; run-permission is fine on POSIX */
         remove(bin);
-        if (rename(tmp, bin) != 0) { pmm_error("无法替换 %s\n", bin); return 1; }
+        if (rename(tmp, bin) != 0) { pmm_error_c(PMM_E_INTERNAL, "检查 ~/.ppdm/bin 是否可写", "无法替换 %s\n", bin); return 1; }
         pmm_success("已更新到 %s（把 %s 加入 PATH，下次运行即新版）\n", bin, bdir);
         return 0;
     }
@@ -333,12 +334,12 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "publish") == 0) file = argc > 2 ? argv[2] : NULL;
     else if (strlen(argv[1]) > 4 && strcmp(argv[1] + strlen(argv[1]) - 4, ".pdm") == 0) file = argv[1];
     if (file) {
-        if (!g_token[0]) { pmm_error("请先 ppdm login\n"); return 1; }
+        if (!g_token[0]) { pmm_error_c(PMM_E_USAGE, "请先执行 ppdm login", "请先 ppdm login\n"); return 1; }
         char pkg[256], ver[128], arch[64];
         pdm_meta(file, pkg, sizeof(pkg), ver, sizeof(ver), arch, sizeof(arch));
-        if (!pkg[0] || !ver[0]) { pmm_error("无法解析 %s 的 Package/Version\n", file); return 1; }
+        if (!pkg[0] || !ver[0]) { pmm_error_c(PMM_E_INTERNAL, "该 .pdm 缺少 Package/Version, 请用 ppdm pack 正确打包", "无法解析 %s 的 Package/Version\n", file); return 1; }
         char hex[128];
-        if (pmm_sha256_file(file, hex) != 0) { pmm_error("无法计算 sha256\n"); return 1; }
+        if (pmm_sha256_file(file, hex) != 0) { pmm_error_c(PMM_E_INTERNAL, "无法读取该文件, 检查权限", "无法计算 sha256\n"); return 1; }
         /* URL-encode description (name/version/arch/os are safe charsets) */
         char desc[512];
         snprintf(desc, sizeof(desc), "%s %s", pkg, ver);
@@ -364,7 +365,7 @@ int main(int argc, char **argv) {
                  g_server, pkg, ver, cpuarch[0] ? cpuarch : "amd64", os, sp);
         snprintf(auth, sizeof(auth), "-H 'Authorization: Bearer %s'", g_token);
         pmm_info("正在发布 %s %s ...\n", pkg, ver);
-        if (http_post(url, auth, NULL, file, resp, sizeof(resp)) <= 0) { pmm_error("发布失败(无响应)\n"); return 1; }
+        if (http_post(url, auth, NULL, file, resp, sizeof(resp)) <= 0) { pmm_error_c(PMM_E_NETWORK, "服务器无响应, 检查网络或服务是否在线", "发布失败(无响应)\n"); return 1; }
         if (js_ok(resp)) {
             char u[2200] = ""; js_val(resp, "url", u, sizeof(u));
             pmm_success("发布成功: %s\n", u[0] ? u : file);
@@ -372,6 +373,6 @@ int main(int argc, char **argv) {
         return js_ok(resp) ? 0 : 1;
     }
 
-    pmm_error("未知命令: %s (试试 ppdm help)\n", argv[1]);
+    pmm_error_c(PMM_E_USAGE, "未知子命令, 用 'ppdm help' 查看", "未知命令: %s (试试 ppdm help)\n", argv[1]);
     return 1;
 }

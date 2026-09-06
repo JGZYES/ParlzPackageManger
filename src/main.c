@@ -30,6 +30,7 @@
 
 #include "pmm.h"
 #include "out.h"
+#include "pmm_err.h"
 #include "i18n.h"
 #include "json.h"
 #include "ini.h"
@@ -223,13 +224,13 @@ static char *registry_fetch(const char *rel, int *outstatus) {
 
 /* pmm search <keyword> — list registry packages matching keyword. */
 static int cmd_search(int argc, char **argv) {
-    if (argc < 1) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+    if (argc < 1) { pmm_error_c(PMM_E_USAGE, "先参考 'pmm help' 查看命令用法", "%s", pmm_tr("msg.err.usage")); return 1; }
     int status = 0;
     char *body = registry_fetch("packages.json", &status);
-    if (!body) { pmm_error("%s", pmm_tr("msg.err.no-registry-index")); return 1; }
+    if (!body) { pmm_error_c(PMM_E_REGISTRY, "检查镜像地址是否可达: 'pmm mirror' 查看当前镜像", "%s", pmm_tr("msg.err.no-registry-index")); return 1; }
     JsonValue *root = json_parse(body);
     free(body);
-    if (!root || root->type != JSON_ARRAY) { pmm_error("%s", pmm_tr("msg.err.bad-registry-index")); json_free(root); return 1; }
+    if (!root || root->type != JSON_ARRAY) { pmm_error_c(PMM_E_REGISTRY, "镜像索引损坏, 尝试 'pmm fetch --fresh' 刷新", "%s", pmm_tr("msg.err.bad-registry-index")); json_free(root); return 1; }
     const char *kw = argv[0];
     int found = 0;
     for (int i = 0; i < root->count; i++) {
@@ -245,7 +246,7 @@ static int cmd_search(int argc, char **argv) {
 
 /* pmm info <package|file.pdm> — registry package info, or a local .pdm's control. */
 static int cmd_info(int argc, char **argv) {
-    if (argc < 1) { pmm_error("usage: pmm info <package|file.pdm>\n"); return 1; }
+    if (argc < 1) { pmm_error_c(PMM_E_USAGE, "用法: pmm info <软件包名|文件.pdm>", "usage: pmm info <package|file.pdm>\n"); return 1; }
     const char *pkg = argv[0];
     /* local .pdm -> control info */
     FILE *chk = fopen(pkg, "rb");
@@ -259,10 +260,10 @@ static int cmd_info(int argc, char **argv) {
     char rel[512]; snprintf(rel, sizeof(rel), "%s.json", pkg);
     int status = 0;
     char *body = registry_fetch(rel, &status);
-    if (!body) { pmm_error("%s", pmm_tr_fmt("msg.err.not-found", pkg)); return 1; }
+    if (!body) { pmm_error_c(PMM_E_NOT_FOUND, "检查包名拼写, 或先用 'pmm search' 搜索", "%s", pmm_tr_fmt("msg.err.not-found", pkg)); return 1; }
     JsonValue *root = json_parse(body);
     free(body);
-    if (!root || root->type != JSON_OBJECT) { pmm_error("%s", pmm_tr_fmt("msg.err.bad-entry", pkg)); json_free(root); return 1; }
+    if (!root || root->type != JSON_OBJECT) { pmm_error_c(PMM_E_REGISTRY, "该包在镜像中的条目异常, 可尝试刷新镜像", "%s", pmm_tr_fmt("msg.err.bad-entry", pkg)); json_free(root); return 1; }
     const char *name = json_str(root, "name");
     const char *ver  = json_str(root, "version");
     pmm_info("%s%s%s\n", name ? name : pkg, ver ? " " : "", ver ? ver : "");
@@ -443,7 +444,7 @@ static int cmd_upgrade(int argc, char **argv) {
             if (!(ans[0] == 'y' || ans[0] == 'Y')) continue;
         }
         if (install_from_registry(pkg, NULL, mirror.name) == 0) { upgraded++; }
-        else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
+        else pmm_error_c(PMM_E_INTERNAL, "安装失败, 可先 'pmm fetch <包名>' 手动下载排查", "%s", pmm_tr_fmt("msg.err.failed-install", pkg));
     }
 
     free(cfg.registry_url); free(cfg.mirror_name);
@@ -546,10 +547,10 @@ static int save_registry_cache(const char *rel, const char *body) {
 static int cmd_update(void) {
     int status = 0;
     char *body = registry_fetch("packages.json", &status);
-    if (!body) { pmm_error("no registry index (packages.json) available\n"); return 1; }
+    if (!body) { pmm_error_c(PMM_E_REGISTRY, "检查镜像地址: 'pmm mirror' 查看当前镜像", "no registry index (packages.json) available\n"); return 1; }
     JsonValue *root = json_parse(body);
     if (!root || root->type != JSON_ARRAY) {
-        pmm_error("bad registry index\n"); if (root) json_free(root); free(body); return 1;
+        pmm_error_c(PMM_E_REGISTRY, "镜像索引损坏, 尝试 'pmm fetch --fresh' 刷新", "bad registry index\n"); if (root) json_free(root); free(body); return 1;
     }
     int total = root->count, ok = 0;
     if (total == 0) { pmm_info("%s", pmm_tr("msg.registry-empty")); json_free(root); free(body); return 0; }
@@ -579,11 +580,11 @@ static int cmd_update(void) {
 
 /* pmm verify <file> — print sha256 (and sha1) of a downloaded package file. */
 static int cmd_verify(int argc, char **argv) {
-    if (argc < 1) { pmm_error("usage: pmm verify <file>\n"); return 1; }
+    if (argc < 1) { pmm_error_c(PMM_E_USAGE, "用法: pmm verify <文件>", "usage: pmm verify <file>\n"); return 1; }
     const char *file = argv[0];
     char hex[128];
     if (pmm_sha256_file(file, hex) == 0) pmm_success("%s", pmm_tr_fmt("msg.sha256", hex, file));
-    else { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-read", file)); return 1; }
+    else { pmm_error_c(PMM_E_NOT_FOUND, "检查文件路径是否存在且可读", "%s", pmm_tr_fmt("msg.err.cannot-read", file)); return 1; }
     if (pmm_sha1_file(file, hex) == 0) pmm_success("%s", pmm_tr_fmt("msg.sha1", hex, file));
     return 0;
 }
@@ -646,7 +647,7 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
         if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
             host = host_from_name(argv[++i]);
             if (host == HOST_UNKNOWN) {
-                pmm_error("%s", pmm_tr_fmt("msg.err.unknown-host", argv[i]));
+                pmm_error_c(PMM_E_USAGE, "可用主机: github / gitlab / gitea / forgejo", "%s", pmm_tr_fmt("msg.err.unknown-host", argv[i]));
                 return 1;
             }
         } else if ((strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "--branch") == 0) && i + 1 < argc) {
@@ -656,7 +657,8 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
         }
     }
     if (!repo) {
-        pmm_error(
+        pmm_error_c(PMM_E_USAGE,
+            "用法: pmm install --git <repo-url.git> / --github <owner/repo> / --gitlab <owner/repo> / --gitea <url/owner/repo>",
             "usage:\n"
             "  pmm install --git <repo-url.git>     any git host (auto-detected API)\n"
             "  pmm install --github <owner/repo>    GitHub\n"
@@ -680,7 +682,7 @@ static int cmd_install_git(int argc, char **argv, const char *flag) {
                 "(tried gitea/gitlab/github shapes)\n", repo);
     if (!asset) {
         if (host != HOST_AUTO)
-            pmm_error("%s", pmm_tr_fmt("msg.err.no-suitable-asset", pmm_os_name(os), repo));
+            pmm_error_c(PMM_E_NOT_FOUND, "该仓库没有适配当前系统的发布文件, 换用 --git 完整 URL", "%s", pmm_tr_fmt("msg.err.no-suitable-asset", pmm_os_name(os), repo));
         repo_close(ctx);
         return 1;
     }
@@ -736,7 +738,7 @@ static int cmd_mirror(int argc, char **argv) {
      * (apt-style source check). Reports priority + ok/fail for each source. */
     if (strcmp(argv[0], "check") == 0) {
         Ini *ini = ini_load(path);
-        if (!ini || !ini->head) { pmm_error("%s", pmm_tr("msg.err.no-mirror")); ini_free(ini); return 1; }
+        if (!ini || !ini->head) { pmm_error_c(PMM_E_NO_MIRROR, "先添加镜像: 'pmm mirror add <名称> <api地址>'", "%s", pmm_tr("msg.err.no-mirror")); ini_free(ini); return 1; }
         printf("checking registry mirrors...\n");
         char lastsec[512] = "";
         int reachable = 0, total = 0;
@@ -770,7 +772,7 @@ static int cmd_mirror(int argc, char **argv) {
     }
     if (strcmp(argv[0], "add") == 0 && argc >= 3) {
         FILE *f = fopen(path, "a");
-        if (!f) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", path)); return 1; }
+        if (!f) { pmm_error_c(PMM_E_INTERNAL, "检查配置文件目录是否可写(系统模式需 sudo)", "%s", pmm_tr_fmt("msg.err.cannot-write", path)); return 1; }
         fprintf(f, "\n[%s]\napi = %s\n", argv[1], argv[2]);
         fclose(f);
         pmm_success("%s", pmm_tr_fmt("msg.mirror-added", argv[1]));
@@ -790,7 +792,7 @@ static int cmd_mirror(int argc, char **argv) {
             fclose(rf);
         }
         FILE *wf = fopen(cfgpath, "w");
-        if (!wf) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
+        if (!wf) { pmm_error_c(PMM_E_INTERNAL, "检查配置文件目录是否可写(系统模式需 sudo)", "%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
         int wrote = 0;
         for (int i = 0; i < n; i++) fputs(lines[i], wf);
         fprintf(wf, "mirror = %s\n", argv[1]);
@@ -801,9 +803,9 @@ static int cmd_mirror(int argc, char **argv) {
     }
     if (strcmp(argv[0], "remove") == 0 && argc >= 2) {
         Ini *ini = ini_load(path);
-        if (!ini) { pmm_error("%s", pmm_tr("msg.err.no-mirror-file")); return 1; }
+        if (!ini) { pmm_error_c(PMM_E_NO_MIRROR, "检查镜像配置文件是否存在", "%s", pmm_tr("msg.err.no-mirror-file")); return 1; }
         FILE *f = fopen(path, "w");
-        if (!f) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", path)); ini_free(ini); return 1; }
+        if (!f) { pmm_error_c(PMM_E_INTERNAL, "检查配置文件目录是否可写(系统模式需 sudo)", "%s", pmm_tr_fmt("msg.err.cannot-write", path)); ini_free(ini); return 1; }
         char cursec[512] = "";
         for (IniEntry *e = ini->head; e; e = e->next) {
             if (strcmp(e->section, cursec) != 0) {
@@ -819,7 +821,7 @@ static int cmd_mirror(int argc, char **argv) {
         pmm_success("%s", pmm_tr_fmt("msg.mirror-removed", argv[1]));
         return 0;
     }
-    pmm_error("%s", pmm_tr("msg.err.usage"));
+    pmm_error_c(PMM_E_USAGE, "用法: pmm mirror <add|use|remove|check|list> ...", "%s", pmm_tr("msg.err.usage"));
     return 1;
 }
 
@@ -923,7 +925,7 @@ static int cmd_cache(int argc, char **argv) {
 
 /* ---- pmm fetch <pkg>... : predownload packages into the cache (no install) ---- */
 static int cmd_fetch(int argc, char **argv) {
-    if (argc < 1) { pmm_error("用法: pmm fetch <pkg>...\n"); return 1; }
+    if (argc < 1) { pmm_error_c(PMM_E_USAGE, "用法: pmm fetch <软件包名>...", "用法: pmm fetch <pkg>...\n"); return 1; }
     pmm_fetch_only = 1;
     int ok = 0;
     for (int i = 0; i < argc; i++)
@@ -1151,7 +1153,7 @@ static void mkdir_p_local(char *path) {
 /* pmm setting lang ... */
 static int cmd_setting(int argc, char **argv) {
     if (argc < 1) {
-        pmm_error("%s", pmm_tr("msg.err.usage"));
+        pmm_error_c(PMM_E_USAGE, "用法: pmm setting <get|set|mirror|lang> ...", "%s", pmm_tr("msg.err.usage"));
         return 1;
     }
     char dir[1024];
@@ -1171,9 +1173,9 @@ static int cmd_setting(int argc, char **argv) {
 
     /* setting set <key> <value> — persist a key=value in pmm.conf */
     if (strcmp(argv[0], "set") == 0) {
-        if (argc < 3) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+        if (argc < 3) { pmm_error_c(PMM_E_USAGE, "用法: pmm setting set <键> <值>", "%s", pmm_tr("msg.err.usage")); return 1; }
         const char *key = argv[1], *val = argv[2];
-        if (!*key || strstr(key, " ") || strstr(val, "\n")) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+        if (!*key || strstr(key, " ") || strstr(val, "\n")) { pmm_error_c(PMM_E_USAGE, "键不能含空格, 值不能包含换行", "%s", pmm_tr("msg.err.usage")); return 1; }
         char lines[256][1024]; int nn = 0;
         FILE *rf = fopen(cfgpath, "r");
         if (rf) {
@@ -1185,7 +1187,7 @@ static int cmd_setting(int argc, char **argv) {
             fclose(rf);
         }
         FILE *wf = fopen(cfgpath, "w");
-        if (!wf) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
+        if (!wf) { pmm_error_c(PMM_E_INTERNAL, "检查配置文件目录是否可写(系统模式需 sudo)", "%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
         for (int i = 0; i < nn; i++) fputs(lines[i], wf);
         fprintf(wf, "%s = %s\n", key, val);
         fclose(wf);
@@ -1213,7 +1215,7 @@ static int cmd_setting(int argc, char **argv) {
     }
 
     if (strcmp(argv[0], "lang") != 0) {
-        pmm_error("%s", pmm_tr("msg.err.usage"));
+        pmm_error_c(PMM_E_USAGE, "可用子命令: get / set / mirror / lang", "%s", pmm_tr("msg.err.usage"));
         return 1;
     }
     char langdir[1200];
@@ -1244,9 +1246,9 @@ static int cmd_setting(int argc, char **argv) {
     }
 
     /* install / activate a specific locale: requires a value */
-    if (argc < 2) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
+    if (argc < 2) { pmm_error_c(PMM_E_USAGE, "用法: pmm setting lang <语言代码>", "%s", pmm_tr("msg.err.usage")); return 1; }
     const char *loc = argv[1];
-    if (strchr(loc, '/') || strchr(loc, '\\') || strstr(loc, "..")) { pmm_error("%s", pmm_tr_fmt("msg.err.invalid-locale", loc)); return 1; }
+    if (strchr(loc, '/') || strchr(loc, '\\') || strstr(loc, "..")) { pmm_error_c(PMM_E_LANG, "语言代码非法, 应为不含路径的纯名称(如 zh-CN)", "%s", pmm_tr_fmt("msg.err.invalid-locale", loc)); return 1; }
 
     /* Try every registry mirror in priority order; a pack may only be reachable
      * on a secondary mirror. Language packs live under {host}/mirror/lang/, NOT
@@ -1277,7 +1279,7 @@ static int cmd_setting(int argc, char **argv) {
         if (http_download(url, out) == 0) { got = 1; break; }
     }
     if (!got) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.download-failed", loc));
+        pmm_error_c(PMM_E_DOWNLOAD, "检查网络连接或镜像地址, 或 'pmm mirror check'", "%s", pmm_tr_fmt("msg.err.download-failed", loc));
         mirrors_free(ml); return 1;
     }
     mirrors_free(ml);
@@ -1293,7 +1295,7 @@ static int cmd_setting(int argc, char **argv) {
         fclose(rf);
     }
     FILE *wf = fopen(cfgpath, "w");
-    if (!wf) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
+    if (!wf) { pmm_error_c(PMM_E_INTERNAL, "检查配置文件目录是否可写(系统模式需 sudo)", "%s", pmm_tr_fmt("msg.err.cannot-write", cfgpath)); return 1; }
     for (int i = 0; i < nn; i++) fputs(lines[i], wf);
     fprintf(wf, "language = %s\n", loc);
     fclose(wf);
@@ -1415,8 +1417,8 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "setting") == 0) return cmd_setting(argc - 2, argv + 2);
     /* pmm remove <pkg>  (also used by the Windows "Uninstall" registration) */
     if (strcmp(argv[1], "remove") == 0) {
-        if (argc < 3) { pmm_error("%s", pmm_tr("msg.err.usage")); return 1; }
-        if (argv[2][0] == '-') { pmm_error("%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[2])); return 1; }
+        if (argc < 3) { pmm_error_c(PMM_E_USAGE, "用法: pmm remove <软件包名>", "%s", pmm_tr("msg.err.usage")); return 1; }
+        if (argv[2][0] == '-') { pmm_error_c(PMM_E_USAGE, "remove 后面应是包名而不是选项", "%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[2])); return 1; }
         return pdm_remove(argv[2]) == 0 ? 0 : 1;
     }
     /* pmm self-update: install the latest 'pmm' tool package (auto os+arch) */
@@ -1471,7 +1473,9 @@ int main(int argc, char **argv) {
                           strcmp(argv[2], "--forgejo") == 0))
             return cmd_install_git(argc - 3, argv + 3, argv[2] + 2);
     if (argc < 3) {
-        pmm_error("usage: pmm install <pkg|file.deb|file.msi|file.rpm|file.pdm> [pkg2 ...]\n"
+        pmm_error_c(PMM_E_USAGE,
+            "用法: pmm install <软件包名|文件.deb|文件.msi|文件.rpm|文件.pdm> ...",
+            "usage: pmm install <pkg|file.deb|file.msi|file.rpm|file.pdm> [pkg2 ...]\n"
                         "           | pmm install -dpkg <x.deb>   install a .deb (Linux)\n"
                         "           | pmm install -rpm <x.rpm>    install an .rpm (any Linux, incl. Debian/RPM)\n"
                         "           | pmm install --git <repo>\n");
@@ -1501,7 +1505,7 @@ int main(int argc, char **argv) {
         /* A bare leading option (e.g. `install --gits`) is not a package; report
          * an unknown command instead of treating the flag as a name. */
         if (argv[2][0] == '-')
-            pmm_error("%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[2]));
+            pmm_error_c(PMM_E_USAGE, "install 后应跟软件包名, 或可识别的选项(如 --git)", "%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[2]));
         else items[ni++] = argv[2];
         if (ni == 0) return 1;
     }
@@ -1532,7 +1536,7 @@ int main(int argc, char **argv) {
         }
         size_t la = strlen(pkg);
         if (la > 4 && (strcmp(pkg + la - 4, ".pdm") == 0 || strcmp(pkg + la - 4, ".PDM") == 0)) {
-            if (pdm_install_file(pkg) == 0) ok++; else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
+            if (pdm_install_file(pkg) == 0) ok++; else pmm_error_c(PMM_E_INTERNAL, "安装失败, 可先 'pmm fetch <包名>' 手动下载排查", "%s", pmm_tr_fmt("msg.err.failed-install", pkg));
             continue;
         }
         /* direct URL install: pmm install https://.../foo.zip
@@ -1544,14 +1548,14 @@ int main(int argc, char **argv) {
             else if (forced == 2) bn = "download.msi";
             else if (forced == 3) bn = "download.rpm";
             if (install_file(pkg, bn) == 0) ok++;
-            else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
+            else pmm_error_c(PMM_E_INTERNAL, "下载或安装失败, 检查网络/文件格式", "%s", pmm_tr_fmt("msg.err.failed-install", pkg));
             continue;
         }
         /* local file install: forced -dpkg/-msi, or an existing installer file
          * (e.g. `pmm install foo.deb` / `pmm install foo.msi`) */
         if (forced == 1 || forced == 2 || forced == 3 || has_installer_ext(pkg)) {
             if (install_local_file(pkg) == 0) ok++;
-            else pmm_error("%s", pmm_tr_fmt("msg.err.failed-install", pkg));
+            else pmm_error_c(PMM_E_INTERNAL, "安装失败, 检查文件是否为有效安装包", "%s", pmm_tr_fmt("msg.err.failed-install", pkg));
             continue;
         }
         if (install_from_registry(pkg, spec[0] ? spec : NULL, mirror.name) == 0) ok++;
@@ -1563,7 +1567,7 @@ int main(int argc, char **argv) {
 
     if (strcmp(argv[1], "pack") == 0) {
         if (argc < 3) {
-            pmm_error("%s", pmm_tr("msg.err.usage"));
+            pmm_error_c(PMM_E_USAGE, "用法: pmm pack <目录> [输出.pdm]", "%s", pmm_tr("msg.err.usage"));
             return 1;
         }
         return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
@@ -1573,13 +1577,13 @@ int main(int argc, char **argv) {
         return cmd_search(argc - 2, argv + 2);
     if (strcmp(argv[1], "cache") == 0) {
         if (argc >= 3 && strcmp(argv[2], "clean") == 0) return cmd_cache_clean();
-        pmm_error("%s", pmm_tr("msg.err.usage")); return 1;
+        pmm_error_c(PMM_E_USAGE, "用法: pmm cache <list|clean>", "%s", pmm_tr("msg.err.usage")); return 1;
     }
     if (strcmp(argv[1], "info") == 0)
         return cmd_info(argc - 2, argv + 2);
     if (strcmp(argv[1], "verify") == 0)
         return cmd_verify(argc - 2, argv + 2);
 
-    pmm_error("%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[1]));
+    pmm_error_c(PMM_E_USAGE, "未知子命令, 用 'pmm help' 查看可用命令", "%s", pmm_tr_fmt("msg.err.unknown-cmd", argv[1]));
     return 1;
 }

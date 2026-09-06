@@ -2,6 +2,7 @@
 #include "pdm.h"
 #include "pmm.h"
 #include "out.h"
+#include "pmm_err.h"
 #include "i18n.h"
 #include "install.h"
 #include "sha256.h"
@@ -138,13 +139,13 @@ int pdm_pack(const char *dir, const char *out) {
     snprintf(cp_, sizeof(cp_), "%s/pdm-control", dir);
     char *control = read_file(cp_, NULL);
     if (!control) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.no-control", dir));
+        pmm_error_c(PMM_E_NOT_FOUND, "打包目录缺少 pdm-control 文件, 需先创建", "%s", pmm_tr_fmt("msg.err.no-control", dir));
         return -1;
     }
     char *pkg = control_get(control, "Package");
     char *ver = control_get(control, "Version");
     if (!pkg || !*pkg) {
-        pmm_error(pmm_tr("msg.err.no-package"));
+        pmm_error_c(PMM_E_INTERNAL, "pdm-control 中缺少 Package 字段", "%s", pmm_tr("msg.err.no-package"));
         free(control); return -1;
     }
     if (!ver || !*ver) ver = strdup("0.0.0");
@@ -165,13 +166,13 @@ int pdm_pack(const char *dir, const char *out) {
 
     /* control.tar.gz (contains pdm-control; packed from the source dir) */
     snprintf(cmd, sizeof(cmd), "tar -czf \"%s/control.tar.gz\" -C \"%s\" pdm-control", stage, dir);
-    if (system(cmd) != 0) { pmm_error(pmm_tr("msg.err.tar-control")); rmtree(stage); return -1; }
+    if (system(cmd) != 0) { pmm_error_c(PMM_E_EXTRACT, "检查系统是否安装 tar, 目录是否可读/写", "%s", pmm_tr("msg.err.tar-control")); rmtree(stage); return -1; }
 
     /* data.tar.gz (everything except pdm-control and the scratch dir) */
     snprintf(cmd, sizeof(cmd),
              "tar -czf \"%s/data.tar.gz\" -C \"%s\" --exclude pdm-control --exclude %s .",
              stage, dir, stage);
-    if (system(cmd) != 0) { pmm_error(pmm_tr("msg.err.tar-data")); rmtree(stage); return -1; }
+    if (system(cmd) != 0) { pmm_error_c(PMM_E_EXTRACT, "检查系统是否安装 tar, 目录是否可读/写", "%s", pmm_tr("msg.err.tar-data")); rmtree(stage); return -1; }
 
     /* sha256sums of the two members */
     char sums_path[1100], hex[128];
@@ -190,7 +191,7 @@ int pdm_pack(const char *dir, const char *out) {
     snprintf(cmd, sizeof(cmd), "tar -cf \"%s\" -C \"%s\" control.tar.gz data.tar.gz sha256sums", out, stage);
     int rc = system(cmd);
     rmtree(stage);
-    if (rc != 0) { pmm_error("%s", pmm_tr_fmt("msg.err.cannot-write", out)); return -1; }
+    if (rc != 0) { pmm_error_c(PMM_E_INTERNAL, "检查输出目录是否可写(系统模式需 sudo)", "%s", pmm_tr_fmt("msg.err.cannot-write", out)); return -1; }
 
     pmm_success("%s", pmm_tr_fmt("msg.packed", dir, pkg, ver, out));
     free(control); free(pkg);
@@ -458,7 +459,7 @@ int pdm_info(const char *pdmfile) {
 
 int pdm_install_file(const char *pdmfile) {
     if (!ends_with(pdmfile, ".pdm")) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.not-pdm", pdmfile));
+        pmm_error_c(PMM_E_USAGE, "请提供 .pdm 格式的安装包(如 <包名>_<版本>.pdm)", "%s", pmm_tr_fmt("msg.err.not-pdm", pdmfile));
         return -1;
     }
     char home[1024], db[1024], root[1024], cmd[2600];
@@ -478,11 +479,11 @@ int pdm_install_file(const char *pdmfile) {
     char tmpname[1400], tmprel[] = "_pmm_install.pdm";
     snprintf(tmpname, sizeof(tmpname), "%s/_pmm_install.pdm", home);
     if (copy_file(pdmfile, tmpname) != 0) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.cannot-read", pdmfile));
+        pmm_error_c(PMM_E_NOT_FOUND, "检查文件路径是否存在且可读", "%s", pmm_tr_fmt("msg.err.cannot-read", pdmfile));
         return -1;
     }
     if (chdir_save(home) != 0) { remove(tmpname); return -1; }
-    if (system(NULL) == 0) { pmm_error(pmm_tr("msg.err.no-tar")); chdir_restore(); remove(tmpname); return -1; }
+    if (system(NULL) == 0) { pmm_error_c(PMM_E_NO_TAR, "系统缺少 tar, 请先安装 tar(如 apt install tar)", "%s", pmm_tr("msg.err.no-tar")); chdir_restore(); remove(tmpname); return -1; }
 
     const char *stage = "installed/.stage";
     rmtree(stage);
@@ -491,7 +492,7 @@ int pdm_install_file(const char *pdmfile) {
     /* extract members (all relative) */
     snprintf(cmd, sizeof(cmd), "tar -xf \"%s\" -C \"%s\"", tmprel, stage);
     if (system(cmd) != 0) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.bad-archive", pdmfile));
+        pmm_error_c(PMM_E_EXTRACT, "该 .pdm 文件可能损坏或不是有效包, 重新下载", "%s", pmm_tr_fmt("msg.err.bad-archive", pdmfile));
         chdir_restore(); remove(tmpname); return -1;
     }
 
@@ -509,7 +510,7 @@ int pdm_install_file(const char *pdmfile) {
             char mp[1200];
             snprintf(mp, sizeof(mp), "installed/.stage/%s", fname);
             if (pmm_sha256_file(mp, hex) != 0 || strcasecmp(hex, expect) != 0) {
-                pmm_error("%s", pmm_tr_fmt("msg.err.checksum-mismatch-file", fname, pdmfile));
+                pmm_error_c(PMM_E_CHECKSUM, "文件校验和不匹配, 包可能损坏, 重新下载或换镜像", "%s", pmm_tr_fmt("msg.err.checksum-mismatch-file", fname, pdmfile));
                 fclose(sf); chdir_restore(); remove(tmpname); return -1;
             }
         }
@@ -523,7 +524,7 @@ int pdm_install_file(const char *pdmfile) {
     snprintf(cmd, sizeof(cmd), "tar -xzOf \"%s/control.tar.gz\" pdm-control", stage);
     FILE *cf = PMM_POPEN_READ(cmd);
     if (!cf) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.no-control-tar", pdmfile));
+        pmm_error_c(PMM_E_EXTRACT, "包内缺少 control.tar.gz, 不是有效 .pdm", "%s", pmm_tr_fmt("msg.err.no-control-tar", pdmfile));
         chdir_restore(); remove(tmpname); return -1;
     }
     char ctl[4096];
@@ -536,7 +537,7 @@ int pdm_install_file(const char *pdmfile) {
     char *pkg = control_get(ctl, "Package");
     char *ver = control_get(ctl, "Version");
     if (!pkg || !*pkg) {
-        pmm_error(pmm_tr("msg.err.no-package"));
+        pmm_error_c(PMM_E_INTERNAL, "包内 pdm-control 缺少 Package 字段, 不是有效 .pdm", "%s", pmm_tr("msg.err.no-package"));
         chdir_restore(); remove(tmpname); return -1;
     }
 
@@ -560,7 +561,7 @@ int pdm_install_file(const char *pdmfile) {
     /* reject an install that would conflict with a package already present */
     char *confl = control_get(ctl, "Conflicts");
     if (confl && *confl && any_installed_conflict(confl)) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.conflict", pkg, confl));
+        pmm_error_c(PMM_E_CONFLICT, "先移除冲突包, 或使用 --force 覆盖安装", "%s", pmm_tr_fmt("msg.err.conflict", pkg, confl));
         free(confl); free(pkg); if (ver) free(ver);
         chdir_restore(); remove(tmpname); return -1;
     }
@@ -582,7 +583,7 @@ int pdm_install_file(const char *pdmfile) {
     int self_moved = move_self_aside(self_target);
     snprintf(cmd, sizeof(cmd), "tar -xzf \"%s/data.tar.gz\" -C \"%s\"", stage, tgt);
     if (system(cmd) != 0) {
-        pmm_error(pmm_tr("msg.err.extract"));
+        pmm_error_c(PMM_E_EXTRACT, "解包失败, 下载文件可能损坏, 重新下载或换镜像", "%s", pmm_tr("msg.err.extract"));
         if (self_moved) restore_aside(self_target);   /* put old binary back */
         chdir_restore(); remove(tmpname); return -1;
     }
@@ -767,7 +768,7 @@ int pdm_remove(const char *name) {
     long len = 0;
     char *info = read_file(ipath, &len);
     if (!info) {
-        pmm_error("%s", pmm_tr_fmt("msg.err.not-installed", name));
+        pmm_error_c(PMM_E_NOT_FOUND, "该包未安装, 用 'pmm list' 查看已安装的包", "%s", pmm_tr_fmt("msg.err.not-installed", name));
         return -1;
     }
     char *files = strstr(info, "Files:\n");
