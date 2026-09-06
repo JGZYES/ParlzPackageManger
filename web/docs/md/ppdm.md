@@ -3,7 +3,7 @@
 `ppdm`(ParlzPackageDevManager)是 PMM 生态里的**开发者工具**：把软件打包成 `.pdm` 并发布到镜像注册表。
 它与 `pmm`（安装/使用包）分开，负责“做包、发包”。
 
-- 版本：独立版本号（当前 `0.0.1`），不受 PMM 主版本影响。
+- 版本：独立版本号（当前 `0.0.2`），不受 PMM 主版本影响。
 - 服务端：`https://pmm.parlz.com/ppdm`（PHP，对应仓库 `web/ppdm/`）。
 - 配置：`~/.ppdm/config`（Linux）或 `D:\.ppdm\config`（Windows）。
 
@@ -14,7 +14,7 @@
 ```bash
 curl -sSL https://pmm.parlz.com/download/install-ppdm.sh | bash
 hash -r
-ppdm -v        # ppdm 0.0.1
+ppdm -v        # ppdm 0.0.2
 ```
 
 脚本会自动下载最新 `ppdm` 装到 `~/.ppdm/bin/ppdm`（与 `ppdm update` 同一路径），并把 `~/.ppdm/bin` 加进 PATH。
@@ -34,7 +34,7 @@ ppdm update
 验证：
 
 ```bash
-ppdm -v       # ppdm 0.0.1
+ppdm -v       # ppdm 0.0.2
 ppdm help
 ```
 
@@ -47,6 +47,8 @@ ppdm help
 | `ppdm logout` | 撤销并清除 token |
 | `ppdm whoami` | 显示当前邮箱 + 服务器 |
 | `ppdm pack <dir> [out]` | 把 `dir` 打包成 `.pdm`（`dir` 内需有 `pdm-control`） |
+| `ppdm list` | 列出当前账号已发布的包 |
+| `ppdm del <pkg> [version]` | 删除自己已发布的包（可只删某版本） |
 | `ppdm update` | 更新 ppdm 自身 |
 | `ppdm ./xxx.pdm` | 发布包（自动生成 json） |
 | `ppdm help` | 帮助 |
@@ -112,6 +114,18 @@ ppdm ./myapp_1.0.0.pdm
 - 同 `name` 已存在且是**你创建的** → 可以继续上传**新版本**；
 - 同版本重复上传 → 409；
 - 别人改你的包 → 409（阻止越权）。
+
+#### 管理自己发布的包（`ppdm list` / `ppdm del`）
+
+```bash
+ppdm list                # 列出当前账号已发布的所有包（name@version os/arch + url）
+ppdm del myapp           # 删除整个包(所有版本)
+ppdm del myapp 1.0.0     # 只删除某一个版本(其它版本保留)
+```
+
+- `list` 需要先 `ppdm login`；只返回**当前账号作为 owner** 的包。
+- `del` 只能删自己创建的包；他人包会返回 `you are not the owner`。
+- 删整包时，`dists/<pkg>.json`、`dists/<pkg>/<ver>.json` 与 `files/<首字母>/<pkg>/*.pdm` 一并移除。
 
 ## 4. 用 pmm 安装刚发布的包
 

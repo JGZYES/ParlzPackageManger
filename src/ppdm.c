@@ -22,7 +22,7 @@
 #include <time.h>
 
 #ifndef PPDM_VERSION
-#define PPDM_VERSION "0.0.1"   /* ppdm has its own version, independent of PMM */
+#define PPDM_VERSION "0.0.2"   /* ppdm has its own version, independent of PMM */
 #endif
 
 #ifdef _WIN32
@@ -206,6 +206,8 @@ static void usage(void) {
            "  ppdm logout                         撤销并清除本地 token\n"
            "  ppdm whoami                         当前登录邮箱 + 服务器\n"
            "  ppdm pack <dir> [out]              把 <dir> 打包成 .pdm(需含 pdm-control)\n"
+           "  ppdm list                           列出当前账号已发布的包\n"
+           "  ppdm del <pkg> [version]            删除自己已发布的包(可只删某版本)\n"
            "  ppdm update                         更新 ppdm 自身\n"
            "  ppdm ./xxxx.pdm                     发布包(自动生成 json)\n"
            "  ppdm help | -h                      帮助\n\n"
@@ -308,6 +310,39 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "pack") == 0) {
         if (argc < 3) { pmm_error_c(PMM_E_USAGE, "用法: ppdm pack <目录> [输出.pdm]", "用法: ppdm pack <dir> [out]\n"); return 1; }
         return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
+    }
+
+    /* ---- list : packages owned by the current account ---- */
+    if (strcmp(argv[1], "list") == 0) {
+        if (!g_token[0]) { pmm_error_c(PMM_E_USAGE, "请先执行 ppdm login", "请先 ppdm login\n"); return 1; }
+        snprintf(url, sizeof(url), "%s/list.php", g_server);
+        snprintf(auth, sizeof(auth), "-H 'Authorization: Bearer %s'", g_token);
+        http_post(url, auth, "{}", NULL, resp, sizeof(resp));
+        if (js_ok(resp)) {
+            char list[8192];
+            js_val(resp, "list", list, sizeof(list));
+            if (list[0]) printf("当前账号已发布的包:\n%s\n", list);
+            else         pmm_info("当前账号还没有发布任何包\n");
+        } else js_err_print(resp);
+        return js_ok(resp) ? 0 : 1;
+    }
+
+    /* ---- del <pkg> [version] : remove a package you own ---- */
+    if (strcmp(argv[1], "del") == 0 || strcmp(argv[1], "rm") == 0) {
+        if (argc < 3) { pmm_error_c(PMM_E_USAGE, "用法: ppdm del <包名> [版本]", "用法: ppdm del <pkg> [version]\n"); return 1; }
+        if (!g_token[0]) { pmm_error_c(PMM_E_USAGE, "请先执行 ppdm login", "请先 ppdm login\n"); return 1; }
+        char q[2300];
+        if (argc >= 4) snprintf(q, sizeof(q), "%s/del.php?name=%s&version=%s", g_server, argv[2], argv[3]);
+        else           snprintf(q, sizeof(q), "%s/del.php?name=%s", g_server, argv[2]);
+        snprintf(auth, sizeof(auth), "-H 'Authorization: Bearer %s'", g_token);
+        http_post(q, auth, "{}", NULL, resp, sizeof(resp));
+        if (js_ok(resp)) {
+            char removed[256] = "";
+            js_val(resp, "removed", removed, sizeof(removed));
+            if (argc >= 4) pmm_success("已删除 %s 的版本 %s\n", argv[2], argv[3]);
+            else           pmm_success("已删除包 %s\n", argv[2]);
+        } else js_err_print(resp);
+        return js_ok(resp) ? 0 : 1;
     }
 
     /* ---- update : download the latest ppdm and install it under ~/.ppdm/bin/ppdm ---- */
