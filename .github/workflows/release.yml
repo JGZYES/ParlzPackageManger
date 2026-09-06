@@ -25,18 +25,21 @@ jobs:
             ext: .exe
             pkg: mingw-w64
             bin: pmm.exe
+            ppdm: ppdm.exe
             arch: windows-amd64
           - target: linux-amd64
             cc: gcc
             ext: ''
             pkg: ''
             bin: pmm
+            ppdm: ppdm
             arch: amd64
           - target: linux-aarch64
             cc: aarch64-linux-gnu-gcc
             ext: ''
             pkg: gcc-aarch64-linux-gnu
             bin: pmm-aarch64
+            ppdm: ppdm-aarch64
             arch: aarch64
     runs-on: ubuntu-latest
     steps:
@@ -57,7 +60,7 @@ jobs:
             src/main.c src/json.c src/ini.c src/pmm.c src/http.c src/repo.c src/install.c \
             src/sha256.c src/sha1.c src/mirrors.c src/pdm.c src/out.c src/i18n.c
           # -- ppdm package dev tool (register/login/update/pack/publish) — own version 0.0.1
-          ${{ matrix.cc }} -O2 -Wall -static -std=c11 -D_GNU_SOURCE -D_FORTIFY_SOURCE=0 -U_FORTIFY_SOURCE -DPPDM_VERSION=\"0.0.1\" -o out/ppdm${{ matrix.ext }} \
+          ${{ matrix.cc }} -O2 -Wall -static -std=c11 -D_GNU_SOURCE -D_FORTIFY_SOURCE=0 -U_FORTIFY_SOURCE -DPPDM_VERSION=\"0.0.1\" -o out/${{ matrix.ppdm }} \
             src/ppdm.c src/pmm.c src/json.c src/ini.c src/http.c src/repo.c src/install.c \
             src/sha256.c src/sha1.c src/mirrors.c src/pdm.c src/out.c src/i18n.c
 
@@ -70,6 +73,7 @@ jobs:
 
           # -- install.sh helper (uploaded to the release, also served at /install.sh)
           cp web/install.sh out/install.sh
+          cp web/install-ppdm.sh out/install-ppdm.sh
 
           # -- aarch64: a .pdm (pure tar, no pmm needed) for Linux ARM64
           if [ -f out/pmm-aarch64 ]; then
