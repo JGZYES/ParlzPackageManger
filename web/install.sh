@@ -8,7 +8,7 @@
 # 下载官方 release 二进制并安装到 ~/.pmm/root/bin/pmm（与 `pmm install pmm` 自升级同一路径，
 # 避免 install.sh 与 pmm self-update 两处安装“串”）。
 set -e
-VER="0.5.4"
+VER="0.5.5"
 REPO="JGZYES/ParlzPackageManger"
 
 # ---- 检测平台 ----

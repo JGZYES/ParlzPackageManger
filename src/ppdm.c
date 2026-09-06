@@ -1,42 +1,49 @@
-/* pmu.c — PMU : package upload / publish client for the PMM registry.
+/* ppdm.c — PPDM : package upload / publish client for the PMM registry.
  *
- *   pmu register <email> <password>   create an account (local arithmetic captcha)
- *   pmu login    <email> <password>   log in, store a session token
- *   pmu logout                        revoke the stored token
- *   pmu whoami                        show logged-in email + server
- *   pmu ./foo.pdm                     publish a package (alias: pmu publish ./foo.pdm)
- *   pmu help | -h
+ *   ppdm register <email> <password>   create an account (local arithmetic captcha)
+ *   ppdm login    <email> <password>   log in, store a session token
+ *   ppdm logout                        revoke the stored token
+ *   ppdm whoami                        show logged-in email + server
+ *   ppdm ./foo.pdm                     publish a package (alias: ppdm publish ./foo.pdm)
+ *   ppdm help | -h
  *
- * Talks to the PHP service under {server}/ (default https://pmm.parlz.com/pmu).
- * Config is stored in ~/.pmu/config (Windows: D:\.pmu\config).
+ * Talks to the PHP service under {server}/ (default https://pmm.parlz.com/ppdm).
+ * Config is stored in ~/.ppdm/config (Windows: D:\.ppdm\config).
  */
 #include "out.h"
 #include "sha256.h"
+#include "pdm.h"
+#include "http.h"
+#include "i18n.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
+#ifndef PPDM_VERSION
+#define PPDM_VERSION "0.0.1"   /* ppdm has its own version, independent of PMM */
+#endif
+
 #ifdef _WIN32
 #include <direct.h>
-#define PMU_MKDIR(p) _mkdir(p)
+#define PPDM_MKDIR(p) _mkdir(p)
 #else
 #include <unistd.h>
 #include <sys/stat.h>
-#define PMU_MKDIR(p) mkdir((p), 0755)
+#define PPDM_MKDIR(p) mkdir((p), 0755)
 #endif
 
 static int g_no_color = 0;
 
-static const char *pmu_server_default = "https://pmm.parlz.com/pmu";
+static const char *ppdm_server_default = "https://pmm.parlz.com/ppdm";
 
-/* ---- config dir / file: ~/.pmu  (Windows D:\.pmu) ---- */
-static void pmu_config_dir(char *buf, size_t sz) {
+/* ---- config dir / file: ~/.ppdm  (Windows D:\.ppdm) ---- */
+static void ppdm_config_dir(char *buf, size_t sz) {
 #ifdef _WIN32
-    snprintf(buf, sz, "D:\\.pmu");
+    snprintf(buf, sz, "D:\\.ppdm");
 #else
     const char *home = getenv("HOME");
-    snprintf(buf, sz, "%s/.pmu", home && *home ? home : ".");
+    snprintf(buf, sz, "%s/.ppdm", home && *home ? home : ".");
 #endif
 }
 
@@ -47,10 +54,10 @@ static char g_email[256] = "";
 
 static void cfg_init(void) {
     char dir[1024];
-    pmu_config_dir(dir, sizeof(dir));
-    PMU_MKDIR(dir);
+    ppdm_config_dir(dir, sizeof(dir));
+    PPDM_MKDIR(dir);
     snprintf(g_cfg, sizeof(g_cfg), "%s/config", dir);
-    snprintf(g_server, sizeof(g_server), "%s", pmu_server_default);
+    snprintf(g_server, sizeof(g_server), "%s", ppdm_server_default);
     FILE *f = fopen(g_cfg, "r");
     if (f) {
         char line[2400];
@@ -191,15 +198,17 @@ static void pdm_meta(const char *path, char *pkg, size_t pkgsz,
 }
 
 static void usage(void) {
-    printf("pmu — 发布 PMM 包\n\n"
+    printf("ppdm — 发布/打包 PMM 包\n\n"
            "用法:\n"
-           "  pmu register <email> <password>   注册账号(本地算术人机验证)\n"
-           "  pmu login    <email> <password>   登录并保存 token\n"
-           "  pmu logout                         撤销并清除本地 token\n"
-           "  pmu whoami                         当前登录邮箱 + 服务器\n"
-           "  pmu ./xxxx.pdm                     发布包(自动生成 json)\n"
-           "  pmu help | -h                      帮助\n\n"
-           "服务端默认: %s (可用 pmu 配置 server= 覆盖)\n", pmu_server_default);
+           "  ppdm register <email> <password>   注册账号(本地算术人机验证)\n"
+           "  ppdm login    <email> <password>   登录并保存 token\n"
+           "  ppdm logout                         撤销并清除本地 token\n"
+           "  ppdm whoami                         当前登录邮箱 + 服务器\n"
+           "  ppdm pack <dir> [out]              把 <dir> 打包成 .pdm(需含 pdm-control)\n"
+           "  ppdm update                         更新 ppdm 自身\n"
+           "  ppdm ./xxxx.pdm                     发布包(自动生成 json)\n"
+           "  ppdm help | -h                      帮助\n\n"
+           "服务端默认: %s (可用 ppdm 配置 server= 覆盖)\n", ppdm_server_default);
 }
 
 /* Detect the CPU architecture (used as the registry 'arch' field). */
@@ -229,16 +238,21 @@ static void detect_cpu_arch(char *out, size_t sz) {
 int main(int argc, char **argv) {
     g_no_color = getenv("PMM_NO_COLOR") ? 1 : 0;
     cfg_init();
+    pmm_lang_load_active();   /* load the active locale pack or built-in fallback */
     if (argc < 2) { usage(); return 1; }
 
     if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) { usage(); return 0; }
+    if (strcmp(argv[1], "version") == 0 || strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
+        printf("ppdm %s\n", PPDM_VERSION);
+        return 0;
+    }
 
     char resp[8192];
     char url[2300], auth[256] = "";
 
     /* ---- register ---- */
     if (strcmp(argv[1], "register") == 0) {
-        if (argc < 4) { pmm_error("用法: pmu register <email> <password>\n"); return 1; }
+        if (argc < 4) { pmm_error("用法: ppdm register <email> <password>\n"); return 1; }
         const char *email = argv[2], *pass = argv[3];
         if (strchr(email, '\'') || strchr(pass, '\'')) { pmm_error("邮箱/密码不能含单引号\n"); return 1; }
         if (!captcha()) return 1;
@@ -253,7 +267,7 @@ int main(int argc, char **argv) {
 
     /* ---- login ---- */
     if (strcmp(argv[1], "login") == 0) {
-        if (argc < 4) { pmm_error("用法: pmu login <email> <password>\n"); return 1; }
+        if (argc < 4) { pmm_error("用法: ppdm login <email> <password>\n"); return 1; }
         const char *email = argv[2], *pass = argv[3];
         if (strchr(email, '\'') || strchr(pass, '\'')) { pmm_error("邮箱/密码不能含单引号\n"); return 1; }
         snprintf(url, sizeof(url), "%s/login.php", g_server);
@@ -289,12 +303,37 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    /* ---- pack <dir> [out] : build a .pdm from a staging dir (pdm-control required) ---- */
+    if (strcmp(argv[1], "pack") == 0) {
+        if (argc < 3) { pmm_error("用法: ppdm pack <dir> [out]\n"); return 1; }
+        return pdm_pack(argv[2], argc >= 4 ? argv[3] : NULL) == 0 ? 0 : 1;
+    }
+
+    /* ---- update : download the latest ppdm and install it under ~/.ppdm/bin/ppdm ---- */
+    if (strcmp(argv[1], "update") == 0) {
+        char dir[1024], bin[1400], tmp[1500];
+        ppdm_config_dir(dir, sizeof(dir));
+        snprintf(bin, sizeof(bin), "%s/bin/ppdm", dir);
+        snprintf(tmp, sizeof(tmp), "%s/bin/ppdm.upd", dir);
+        char bdir[1200]; snprintf(bdir, sizeof(bdir), "%s/bin", dir);
+        PPDM_MKDIR(bdir);
+        pmm_info("正在下载最新 ppdm ...\n");
+        if (http_download("https://github.com/JGZYES/ParlzPackageManger/releases/latest/download/ppdm", tmp) != 0) {
+            pmm_error("更新下载失败\n"); return 1;
+        }
+        chmod(tmp, 0755);   /* ignore result; run-permission is fine on POSIX */
+        remove(bin);
+        if (rename(tmp, bin) != 0) { pmm_error("无法替换 %s\n", bin); return 1; }
+        pmm_success("已更新到 %s（把 %s 加入 PATH，下次运行即新版）\n", bin, bdir);
+        return 0;
+    }
+
     /* ---- publish ./x.pdm (or "publish") ---- */
     const char *file = NULL;
     if (strcmp(argv[1], "publish") == 0) file = argc > 2 ? argv[2] : NULL;
     else if (strlen(argv[1]) > 4 && strcmp(argv[1] + strlen(argv[1]) - 4, ".pdm") == 0) file = argv[1];
     if (file) {
-        if (!g_token[0]) { pmm_error("请先 pmu login\n"); return 1; }
+        if (!g_token[0]) { pmm_error("请先 ppdm login\n"); return 1; }
         char pkg[256], ver[128], arch[64];
         pdm_meta(file, pkg, sizeof(pkg), ver, sizeof(ver), arch, sizeof(arch));
         if (!pkg[0] || !ver[0]) { pmm_error("无法解析 %s 的 Package/Version\n", file); return 1; }
@@ -333,6 +372,6 @@ int main(int argc, char **argv) {
         return js_ok(resp) ? 0 : 1;
     }
 
-    pmm_error("未知命令: %s (试试 pmu help)\n", argv[1]);
+    pmm_error("未知命令: %s (试试 ppdm help)\n", argv[1]);
     return 1;
 }
