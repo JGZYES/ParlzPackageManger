@@ -158,6 +158,8 @@ static int install_path(const char *path, const char *name);
 int pmm_no_cache = 0;   /* --no-cache: drop cached file before download */
 int pmm_force_reinstall = 0;   /* --force: reinstall even if already present */
 int pmm_yes = 0;   /* -y/--yes: skip confirmation prompts */
+int pmm_offline = 0;   /* --offline: use cache only */
+int pmm_fetch_only = 0;   /* pmm fetch: stop after download, don't install */
 
 /* Extract the data.tar.* member of a .deb (an ar container) to `outdata`.
  * Pure C (no ar/dpkg required). Returns compression code:
@@ -415,6 +417,18 @@ int install_file(const char *url, const char *name) {
     snprintf(path, sizeof(path), "%s/%s", cache, name);
     if (pmm_no_cache) remove(path);   /* force a fresh download */
 
+    /* --offline: install from the cache only, never touch the network */
+    if (pmm_offline) {
+        FILE *cf = fopen(path, "rb");
+        if (!cf) {
+            pmm_error("%s", pmm_tr_fmt("msg.err.not-cached", name));
+            return -1;
+        }
+        fclose(cf);
+        pmm_info("%s", pmm_tr_fmt("msg.offline-using-cache", path));
+        return (pmm_fetch_only) ? 0 : install_path(path, name);
+    }
+
     /* apt-style fallback: mirrors (by priority) first, then the origin URL */
     MirrorList *ml = mirrors_load();
     int ncand = 0;
@@ -447,6 +461,9 @@ int install_file(const char *url, const char *name) {
         remove(path);
         return -1;
     }
+
+    /* pmm fetch: we only wanted to populate the cache — stop here. */
+    if (pmm_fetch_only) return 0;
 
     return install_path(path, name);
 }
@@ -759,6 +776,24 @@ static int parse_dep(const char *d, char *name, size_t ns, char *spec, size_t ss
     return name[0] ? 0 : -1;
 }
 
+/* If `spec` is a single exact version ("1.2.3" or "==1.2.3"), copy it to `out`
+ * and return 1; otherwise return 0 (range / multiple conditions). */
+static int exact_version(const char *spec, char *out, size_t osz) {
+    if (!spec || !*spec) return 0;
+    const char *p = spec;
+    while (*p == ' ' || *p == '\t') p++;
+    if (p[0] == '=' && p[1] == '=') p += 2;
+    else if (p[0] == '=') p += 1;
+    while (*p == ' ' || *p == '\t') p++;
+    if (!*p) return 0;
+    for (const char *q = p; *q; q++)
+        if (*q == '<' || *q == '>' || *q == ',' || *q == '!' || *q == '=' || *q == ' ') return 0;
+    size_t n = strlen(p);
+    if (n >= osz) n = osz - 1;
+    memcpy(out, p, n); out[n] = 0;
+    return 1;
+}
+
 /* Install a comma-separated Depends list. Exposed so local .pdm installs resolve deps. */
 int pmm_install_dep_list(const char *list) {
     if (!list || !*list) return 0;
@@ -849,6 +884,24 @@ int install_from_registry(const char *name, const char *spec, const char *mirror
         json_free(meta);
         mirrors_free(ml);
         return -1;
+    }
+
+    /* For an exact version, prefer the per-version index
+     * {base}/<pkg>/<version>.json (which carries precisely that version's
+     * variants). Falls back to the package's variants if it 404s. */
+    char exactver[128];
+    if (exact_version(spec, exactver, sizeof(exactver))) {
+        char purl[2100];
+        snprintf(purl, sizeof(purl), "%s/%s/%s.json", used_base, name, exactver);
+        int pst = 0;
+        char *pbody = http_get(purl, &pst);
+        if (pbody && pst != 404 && pst != 403 && pst != 503) {
+            JsonValue *pv = json_parse(pbody);
+            free(pbody);
+            JsonValue *pvv = pv ? json_get(pv, "variants") : NULL;
+            if (pvv && pvv->count > 0) { json_free(meta); meta = pv; }
+            else json_free(pv);
+        }
     }
 
     /* resolve declared dependencies before installing this package */

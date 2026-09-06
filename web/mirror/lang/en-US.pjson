@@ -130,5 +130,9 @@
   "msg.cache-cleared": "cache cleaned: %d files, freed %.1f KB",
   "msg.self-up-to-date": "already up to date (v%s, latest v%s), skipping upgrade",
   "desc.doctor": "diagnose",
-  "msg.doctor-issues": "doctor: found %d issue(s)"
+  "msg.doctor-issues": "doctor: found %d issue(s)",
+  "desc.cache": "manage download cache",
+  "desc.fetch": "predownload to cache",
+  "msg.offline-using-cache": "offline: using cached %s",
+  "msg.err.not-cached": "%s not in cache (run pmm fetch)"
 }

@@ -130,5 +130,9 @@
   "msg.cache-cleared": "已清理缓存: %d 个文件，释放 %.1f KB",
   "msg.self-up-to-date": "当前 v%s 已是最新（v%s），跳过升级",
   "desc.doctor": "诊断",
-  "msg.doctor-issues": "doctor: 发现 %d 个问题"
+  "msg.doctor-issues": "doctor: 发现 %d 个问题",
+  "desc.cache": "管理缓存",
+  "desc.fetch": "预下载到缓存",
+  "msg.offline-using-cache": "离线: 使用缓存 %s",
+  "msg.err.not-cached": "%s 未在缓存中（先运行 pmm fetch）"
 }

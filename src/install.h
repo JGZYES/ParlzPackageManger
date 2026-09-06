@@ -13,6 +13,12 @@ int install_local_file(const char *path);
 /* Set by `pmm install --no-cache` to force a fresh download (drop cache file). */
 extern int pmm_no_cache;
 
+/* Set by `--offline` to install from the cache only (no network). */
+extern int pmm_offline;
+
+/* Set by `pmm fetch` to stop after downloading (caching) a package, not install. */
+extern int pmm_fetch_only;
+
 /* Set by `pmm install --force` to reinstall even if a package is already
  * present, and by `-y/--yes` to skip any confirmation prompt. */
 extern int pmm_force_reinstall;

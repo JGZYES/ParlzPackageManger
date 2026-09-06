@@ -875,6 +875,64 @@ static int cmd_clean(void) {
     return 0;
 }
 
+/* ---- pmm cache [list|clean] ---- */
+static unsigned long long g_list_size;
+static int g_list_count;
+static void cache_list_walk(const char *path, int top) {
+#ifdef _WIN32
+    char patt[1200]; snprintf(patt, sizeof(patt), "%s\\*", path);
+    WIN32_FIND_DATAA fd; HANDLE h = FindFirstFileA(patt, &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) continue;
+            char full[1400]; snprintf(full, sizeof(full), "%s\\%s", path, fd.cFileName);
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) cache_list_walk(full, 0);
+            else { ULONGLONG sz = ((ULONGLONG)fd.nFileSizeHigh << 32) | fd.nFileSizeLow;
+                   printf("  %s\n", full); g_list_count++; g_list_size += (unsigned long long)sz; }
+        } while (FindNextFileA(h, &fd));
+        FindClose(h);
+    }
+#else
+    DIR *d = opendir(path);
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d)) != NULL) {
+            if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+            char full[1400]; snprintf(full, sizeof(full), "%s/%s", path, e->d_name);
+            struct stat st;
+            if (stat(full, &st) == 0) {
+                if (S_ISDIR(st.st_mode)) cache_list_walk(full, 0);
+                else { printf("  %s\n", full); g_list_count++; g_list_size += (unsigned long long)st.st_size; }
+            }
+        }
+        closedir(d);
+    }
+#endif
+    (void)top;
+}
+static int cmd_cache(int argc, char **argv) {
+    if (argc > 0 && strcmp(argv[0], "clean") == 0) return cmd_clean();
+    char cache[1024];
+    pmm_cache_dir(cache, sizeof(cache));
+    g_list_size = 0; g_list_count = 0;
+    printf("cache: %s\n", cache);
+    cache_list_walk(cache, 1);
+    printf("(%d 个文件, %.1f KB)\n", g_list_count, (double)g_list_size / 1024.0);
+    return 0;
+}
+
+/* ---- pmm fetch <pkg>... : predownload packages into the cache (no install) ---- */
+static int cmd_fetch(int argc, char **argv) {
+    if (argc < 1) { pmm_error("用法: pmm fetch <pkg>...\n"); return 1; }
+    pmm_fetch_only = 1;
+    int ok = 0;
+    for (int i = 0; i < argc; i++)
+        if (install_from_registry(argv[i], NULL, NULL) == 0) ok++;
+    pmm_fetch_only = 0;
+    pmm_success("已抓取 %d/%d 个包到缓存\n", ok, argc);
+    return ok == argc ? 0 : 1;
+}
+
 /* Return the registry "latest" version of `pkg`. We use the top-level
  * `version` field of `<pkg>.json` (the mirror bumps it on every release) rather
  * than walking the variants array. Returns a malloc'd string, or NULL. */
@@ -1069,6 +1127,8 @@ static void print_help(void) {
     printf("  %-32s%s\n", "pmm setting mirror ...   ", pmm_tr("desc.mirror"));
     printf("  %-32s%s\n", "pmm self-update          ", pmm_tr("desc.self-update"));
     printf("  %-32s%s\n", "pmm clean               ", pmm_tr("desc.clean"));
+    printf("  %-32s%s\n", "pmm cache [list|clean]  ", pmm_tr("desc.cache"));
+    printf("  %-32s%s\n", "pmm fetch <pkg>         ", pmm_tr("desc.fetch"));
     printf("  %-32s%s\n", "pmm doctor              ", pmm_tr("desc.doctor"));
     printf("  %-32s%s\n", "pmm version | help       ", pmm_tr("desc.help"));
     printf("\n%s\n", pmm_tr("help.options"));
@@ -1390,6 +1450,12 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "clean") == 0)
         return cmd_clean();
 
+    if (strcmp(argv[1], "cache") == 0)
+        return cmd_cache(argc - 2, argv + 2);
+
+    if (strcmp(argv[1], "fetch") == 0)
+        return cmd_fetch(argc - 2, argv + 2);
+
     if (strcmp(argv[1], "doctor") == 0 || strcmp(argv[1], "diagnose") == 0)
         return cmd_doctor();
 
@@ -1419,6 +1485,7 @@ int main(int argc, char **argv) {
     for (int i = 2; i < argc; i++) {
         const char *a = argv[i];
         if (strcmp(a, "--no-cache") == 0) { pmm_no_cache = 1; continue; }
+        if (strcmp(a, "--offline") == 0 || strcmp(a, "-o") == 0) { pmm_offline = 1; continue; }
         if (strcmp(a, "--force") == 0)   { pmm_force_reinstall = 1; continue; }
         if (strcmp(a, "-y") == 0 || strcmp(a, "--yes") == 0) { pmm_yes = 1; continue; }
         if (strcmp(a, "-dpkg") == 0) { forced = 1; if (i + 1 < argc) items[ni++] = argv[++i]; continue; }
