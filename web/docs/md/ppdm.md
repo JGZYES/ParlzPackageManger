@@ -9,7 +9,17 @@
 
 ## 安装
 
-下载 release 里的 `ppdm`（Linux）/ `ppdm.exe`（Windows）：
+### 一键安装（推荐）
+
+```bash
+curl -sSL https://pmm.parlz.com/download/install-ppdm.sh | bash
+hash -r
+ppdm -v        # ppdm 0.0.1
+```
+
+脚本会自动下载最新 `ppdm` 装到 `~/.ppdm/bin/ppdm`（与 `ppdm update` 同一路径），并把 `~/.ppdm/bin` 加进 PATH。
+
+### 手动下载
 
 ```bash
 # Linux amd64

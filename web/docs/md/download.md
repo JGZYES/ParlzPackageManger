@@ -18,6 +18,7 @@ curl -sSL https://pmm.parlz.com/download/install.sh | bash
 - [pmm](/download/pmm) — Linux 二进制
 - [pmm.exe](/download/pmm.exe) — Windows 二进制
 - [install.sh](/download/install.sh) — 一键安装脚本
+- [install-ppdm.sh](/download/install-ppdm.sh) — ppdm 开发者工具一键安装脚本
 
 > `.pdm` 包走镜像注册表:`pmm install pmm==0.5.5`(见 [镜像源](index.php?page=mirror))。
 
