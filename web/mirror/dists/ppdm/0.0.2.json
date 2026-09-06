@@ -1,0 +1,36 @@
+{
+  "name": "ppdm",
+  "version": "0.0.2",
+  "variants": [
+    {
+      "os": "windows",
+      "arch": "amd64",
+      "file": "0.0.2-windows-amd64.pdm",
+      "sha256": "c5eb7d5ca136018036b1be04e5c494250a8d5b6ac98e815ed6261d0479729430",
+      "description": "PPDM v0.0.2",
+      "name": "ppdm",
+      "version": "0.0.2",
+      "url": "https://pmm.parlz.com/mirror/files/p/ppdm/0.0.2-windows-amd64.pdm"
+    },
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "0.0.2-linux-amd64.pdm",
+      "sha256": "34dcb753d5fdb73c144a60cce8c8615307dafc68c6368b54992b4ca66585b5fc",
+      "description": "PPDM v0.0.2",
+      "name": "ppdm",
+      "version": "0.0.2",
+      "url": "https://pmm.parlz.com/mirror/files/p/ppdm/0.0.2-linux-amd64.pdm"
+    },
+    {
+      "os": "linux",
+      "arch": "aarch64",
+      "file": "0.0.2-linux-aarch64.pdm",
+      "sha256": "d319ba2a9358640d97eafc394a9610b62e889b0bd8900946e31a3daaefcce1fd",
+      "description": "PPDM v0.0.2 (aarch64)",
+      "name": "ppdm",
+      "version": "0.0.2",
+      "url": "https://pmm.parlz.com/mirror/files/p/ppdm/0.0.2-linux-aarch64.pdm"
+    }
+  ]
+}
