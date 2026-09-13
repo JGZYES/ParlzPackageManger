@@ -661,10 +661,18 @@ int pdm_install_file(const char *pdmfile) {
             if (tf) {
                 char ln[2048];
                 while (fgets(ln, sizeof(ln), tf)) {
-                    if (flat) { /* reflection of the flatten: strip a leading bin/ */
+                    if (flat) {
+                        /* flat mode flattens bin/* up into the prefix root, so
+                         * record "./bin/<x>" as "./<x>" (NOT dropped) — otherwise
+                         * `pmm remove` can't find the flattened file and leaves it. */
                         const char *q = ln;
                         while (*q==' '||*q=='\t') q++;
-                        if (q[0]=='.'&&q[1]=='/'&&strncasecmp(q+2,"bin/",4)==0) { ln[0]='\0'; continue; }
+                        if (q[0]=='.' && q[1]=='/' && strncasecmp(q+2,"bin/",4)==0) {
+                            char nbuf[2048];
+                            snprintf(nbuf, sizeof(nbuf), "./%s", q + 6);   /* past "./bin/" */
+                            fputs(nbuf, dbf);
+                            continue;
+                        }
                     }
                     fputs(ln, dbf);
                 }
