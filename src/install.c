@@ -504,7 +504,7 @@ static int install_path(const char *path, const char *name) {
             return -1;
         }
         pmm_success("%s", pmm_tr_fmt("msg.installed", bname));
-        pmm_add_to_path();
+        /* pdm_install_file already refreshed PATH (~/.bashrc) for this install */
         return 0;
     }
 

@@ -50,7 +50,11 @@ static void skip_ws(Parser *ps) {
 }
 
 static void fail(const char *msg) {
-    pmm_error_c(PMM_E_INTERNAL, "JSON 解析失败, 数据可能损坏或被篡改", "%s", pmm_tr_fmt("msg.err.json-parse", msg));
+    /* Do NOT route this through pmm_tr()/_fmt: the i18n layer parses JSON for
+     * its builtin fallback, so a malformed table would recurse json->i18n->
+     * json until the stack overflows. A plain stderr line breaks that cycle. */
+    fprintf(stderr, "[PMM]:[E%d]: JSON parse error: %s\n",
+            PMM_E_INTERNAL, msg ? msg : "(unknown)");
     exit(1);
 }
 

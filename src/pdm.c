@@ -479,7 +479,19 @@ int pdm_install_file(const char *pdmfile) {
     char tmpname[1400], tmprel[] = "_pmm_install.pdm";
     snprintf(tmpname, sizeof(tmpname), "%s/_pmm_install.pdm", home);
     if (copy_file(pdmfile, tmpname) != 0) {
-        pmm_error_c(PMM_E_NOT_FOUND, "检查文件路径是否存在且可读", "%s", pmm_tr_fmt("msg.err.cannot-read", pdmfile));
+        /* copy_file fails if it can't open the source OR can't write the temp
+         * dest. The source probe distinguishes the two: if the source is
+         * readable, the real problem is we can't write into the config dir
+         * (system mode needs root), so say so instead of "cannot read". */
+        FILE *probe = fopen(pdmfile, "rb");
+        if (probe) {
+            fclose(probe);
+            pmm_error_c(PMM_E_NO_ROOT,
+                "默认系统模式需 root: 用 sudo 运行, 或改用 'pmm -p <路径> install ...' 装到用户目录",
+                "无法写入临时目录 %s (系统模式需要 root/写权限)\n", home);
+        } else {
+            pmm_error_c(PMM_E_NOT_FOUND, "检查文件路径是否存在且可读", "%s", pmm_tr_fmt("msg.err.cannot-read", pdmfile));
+        }
         return -1;
     }
     if (chdir_save(home) != 0) { remove(tmpname); return -1; }
@@ -515,7 +527,7 @@ int pdm_install_file(const char *pdmfile) {
             }
         }
         fclose(sf);
-        pmm_success(pmm_tr("msg.checksum-ok"));
+        pmm_success("%s", pmm_tr("msg.verify-ok"));
     } else {
         pmm_warn(pmm_tr("msg.warn.no-checksum"));
     }

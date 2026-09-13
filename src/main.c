@@ -1134,11 +1134,21 @@ static void print_help(void) {
     printf("  %-32s%s\n", "pmm doctor              ", pmm_tr("desc.doctor"));
     printf("  %-32s%s\n", "pmm version | help       ", pmm_tr("desc.help"));
     printf("\n%s\n", pmm_tr("help.options"));
+#ifdef _WIN32
     printf("  %-32s%s\n", "-p<drive>  ", pmm_tr("opt.p-drive"));
+#else
+    printf("  %-32s%s\n", "-p <path>  ", pmm_tr("opt.p-path"));
+#endif
     printf("  %-32s%s\n", "--no-color ", pmm_tr("opt.no-color"));
     printf("  %-32s%s\n", "-q, --quiet", pmm_tr("opt.quiet"));
     printf("  %-32s%s\n", "--verbose  ", pmm_tr("opt.verbose"));
-    printf("\nconfig: <base>/pmm.json | pmm.ini | pmm.conf  (base = <drive>:\\\\.pmm 或 ~/.pmm)\n");
+    printf("  %-32s%s\n", "--offline  ", pmm_tr("opt.offline"));
+    printf("  %-32s%s\n", "-y, --yes  ", pmm_tr("opt.yes"));
+#ifdef _WIN32
+    printf("\nconfig: <base>/pmm.json | pmm.ini | pmm.conf  (base = <drive>:\\.pmm 或 ~/.pmm)\n");
+#else
+    printf("\nconfig: <base>/pmm.json | pmm.ini | pmm.conf  (base = /etc/pmm 系统模式, 或 -p <path> 用户模式)\n");
+#endif
     printf("mirrors: <base>/mirror.ini | mirror.conf\n");
     printf("asset mapping: windows=exe/msi/zip/7z  linux=deb/rpm/appimage/tar.*  macos=dmg/pkg\n");
 }
@@ -1306,6 +1316,18 @@ static int cmd_setting(int argc, char **argv) {
     return 0;
 }
 
+/* True for a known pmm subcommand name (used to catch "pmm -p install x" where
+ * the user meant "pmm -p <path> install x"). */
+static int is_known_command(const char *s) {
+    static const char *cmds[] = {
+        "install","remove","update","upgrade","search","info","list","fetch",
+        "cache","clean","doctor","diagnose","self-update","pack","verify",
+        "setting","mirror","help","version", NULL
+    };
+    for (int i = 0; cmds[i]; i++) if (strcmp(s, cmds[i]) == 0) return 1;
+    return 0;
+}
+
 /* Parse "-p<drive>" / "-p <drive>" flags (e.g. -pd -> D:\.pmm) anywhere in
  * argv, record the drive, and compact the argument list so subcommands don't
  * see the flag. Returns new argc. */
@@ -1318,13 +1340,25 @@ static int consume_drive_flag(int argc, char **argv) {
             pmm_set_install_drive(dr);
             continue;
         }
-        if (strcmp(a, "-p") == 0 && r + 1 < argc) {
+        if (strcmp(a, "-p") == 0) {
+            if (r + 1 >= argc) {
+                pmm_error_c(PMM_E_USAGE, "用法: pmm -p <路径> <命令> ...", "-p 需要一个路径参数\n");
+                exit(1);
+            }
             const char *nxt = argv[r + 1];
             if (nxt[0] && (nxt[0] >= 'A' && nxt[0] <= 'Z' || nxt[0] >= 'a' && nxt[0] <= 'z') && nxt[1] == '\0') {
                 char dr[2] = { nxt[0], '\0' };
                 pmm_set_install_drive(dr);
                 r++; /* consume the drive arg too */
                 continue;
+            }
+            /* "pmm -p install x": 'install' is a subcommand, not a path — the
+             * user almost certainly meant "pmm -p <path> install x". */
+            if (is_known_command(nxt)) {
+                pmm_error_c(PMM_E_USAGE,
+                    "用法: pmm -p <路径> <命令> ... (例如 pmm -p ~/.pmm install ./x.pdm)",
+                    "-p 后面要跟安装路径, 但 '%s' 是子命令, 被当成了路径\n", nxt);
+                exit(1);
             }
             /* -p <exact path>: install under this full address */
             pmm_set_install_path(nxt);
@@ -1362,6 +1396,11 @@ static int consume_global_flags(int argc, char **argv) {
         if (strcmp(a, "--no-color") == 0) { pmm_no_color = 1; continue; }
         if (strcmp(a, "-q") == 0 || strcmp(a, "--quiet") == 0) { pmm_log_level = 1; continue; }
         if (strcmp(a, "--verbose") == 0) { pmm_log_level = 2; continue; }
+        /* install modifiers may also appear before the command (pmm --offline install x) */
+        if (strcmp(a, "--offline") == 0 || strcmp(a, "-o") == 0) { pmm_offline = 1; continue; }
+        if (strcmp(a, "--no-cache") == 0) { pmm_no_cache = 1; continue; }
+        if (strcmp(a, "--force") == 0) { pmm_force_reinstall = 1; continue; }
+        if (strcmp(a, "-y") == 0 || strcmp(a, "--yes") == 0) { pmm_yes = 1; continue; }
         argv[w++] = argv[r];
     }
     if (getenv("PMM_NO_COLOR")) pmm_no_color = 1;
@@ -1399,8 +1438,8 @@ int main(int argc, char **argv) {
     }
     if (argc < 2) { print_help(); return 0; }
     pmm_set_self_path(argv[0]);
-    argc = consume_drive_flag(argc, argv);
     argc = consume_global_flags(argc, argv);
+    argc = consume_drive_flag(argc, argv);
     if (argc < 2) { print_help(); return 0; }
 
     if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {

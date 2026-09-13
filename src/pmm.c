@@ -278,7 +278,10 @@ static int dir_has_exec(const char *dir) {
         char full[1300];
         snprintf(full, sizeof(full), "%s/%s", dir, e->d_name);
         struct stat st;
-        if (stat(full, &st) == 0 && !S_ISDIR(st.st_mode)) { found = 1; break; }
+        /* require the executable bit — otherwise "installed"/"cache"/"lang"
+         * (plain data files) would be wrongly added to PATH. */
+        if (stat(full, &st) == 0 && !S_ISDIR(st.st_mode) &&
+            (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))) { found = 1; break; }
     }
     closedir(d);
     return found;
