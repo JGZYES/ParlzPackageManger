@@ -1,0 +1,16 @@
+{
+  "name": "libxml2",
+  "version": "2.14.8",
+  "variants": [
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "libxml2.pdm",
+      "sha256": "c7e62a747484b400464789db04eee2c2b54b88bba43c7e5d808ac1cf24411bd8",
+      "description": "libxml2 runtime (self-contained .so)",
+      "name": "libxml2",
+      "version": "2.14.8",
+      "url": "https://pmm.parlz.com/mirror/files/l/libxml2/libxml2.pdm"
+    }
+  ]
+}

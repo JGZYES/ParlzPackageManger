@@ -1,0 +1,20 @@
+{
+  "name": "libcurl",
+  "version": "8.0.0",
+  "os": "linux",
+  "arch": "amd64",
+  "description": "libcurl runtime",
+  "owner": "pmm-bot",
+  "variants": [
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "libcurl.pdm",
+      "sha256": "91e8d22a29f31953b7719d6beb33e8fa5ae69cdf6c43f87c9bd407c610f06602",
+      "description": "libcurl runtime (self-contained .so)",
+      "name": "libcurl",
+      "version": "8.0.0",
+      "url": "https://pmm.parlz.com/mirror/files/l/libcurl/libcurl.pdm"
+    }
+  ]
+}

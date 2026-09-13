@@ -18,7 +18,7 @@
       "os": "linux",
       "arch": "amd64",
       "file": "8.4.9-linux-amd64.pdm",
-      "sha256": "5b6e18f0a89affedbb1b86dc4090c096a2a73dc58b941088e4e1d584221e02d3",
+      "sha256": "ee944b66d346ac133ca8bd4f1f2401ad73946db1f5075b2dbf232a2ed1e00044",
       "description": "PHP 8.4.9 CLI self-contained (bundles shared libs, glibc>=2.43)",
       "name": "php",
       "version": "8.4.9",

@@ -497,9 +497,18 @@ int pdm_install_file(const char *pdmfile) {
     if (chdir_save(home) != 0) { remove(tmpname); return -1; }
     if (system(NULL) == 0) { pmm_error_c(PMM_E_NO_TAR, "系统缺少 tar, 请先安装 tar(如 apt install tar)", "%s", pmm_tr("msg.err.no-tar")); chdir_restore(); remove(tmpname); return -1; }
 
-    const char *stage = "installed/.stage";
+    /* Per-package stage dir so a dependency that re-enters this function does
+     * not rmtree/rewrite the caller's stage. Keyed by the package base name. */
+    char stage[512];
+    snprintf(stage, sizeof(stage), "installed/.stage-%s", base_name(pdmfile));
     rmtree(stage);
     PMM_MKDIR(stage);
+    /* NOTE: `stage` is a relative path resolved against the pm dir (cwd). It is
+     * shared across nested installs (a dependency re-enters this function), so
+     * every reference below stays relative and we only re-extract here; the
+     * dependency's own rmtree(stage) is harmless because by the time deps run
+     * (after flatten, see below) this package's data is already unpacked into
+     * `tgt` and the stage dir is no longer needed. */
 
     /* extract members (all relative) */
     snprintf(cmd, sizeof(cmd), "tar -xf \"%s\" -C \"%s\"", tmprel, stage);
@@ -510,7 +519,9 @@ int pdm_install_file(const char *pdmfile) {
 
     /* verify member checksums (relative to pm dir) */
     char hex[128];
-    FILE *sf = fopen("installed/.stage/sha256sums", "r");
+    FILE *sf; char sums[600];
+    snprintf(sums, sizeof(sums), "%s/sha256sums", stage);
+    sf = fopen(sums, "r");
     if (sf) {
         char line[256], fname[128], expect[128];
         while (fgets(line, sizeof(line), sf)) {
@@ -519,8 +530,8 @@ int pdm_install_file(const char *pdmfile) {
              * a '*' before the name, e.g. "<hash> *control.tar.gz". Strip it so
              * the filename resolves; otherwise the check always "mismatches". */
             if (fname[0] == '*') memmove(fname, fname + 1, strlen(fname));
-            char mp[1200];
-            snprintf(mp, sizeof(mp), "installed/.stage/%s", fname);
+            char mp[1400];
+            snprintf(mp, sizeof(mp), "%s/%s", stage, fname);
             if (pmm_sha256_file(mp, hex) != 0 || strcasecmp(hex, expect) != 0) {
                 pmm_error_c(PMM_E_CHECKSUM, "文件校验和不匹配, 包可能损坏, 重新下载或换镜像", "%s", pmm_tr_fmt("msg.err.checksum-mismatch-file", fname, pdmfile));
                 fclose(sf); chdir_restore(); remove(tmpname); return -1;
@@ -543,9 +554,13 @@ int pdm_install_file(const char *pdmfile) {
     size_t got = fread(ctl, 1, sizeof(ctl) - 1, cf);
     PMM_PCLOSE_READ(cf);
     ctl[got] = '\0';
-    /* resolve declared dependencies from the registry before installing */
+    /* NOTE: resolve declared dependencies AFTER the data tarball is unpacked
+     * below, not here. Installing a dependency recursively re-enters this
+     * function and its chdir_save/rmtree("installed/.stage") would clobber the
+     * caller's stage dir + relative paths (a single static saved_cwd meant the
+     * nested restore could also land in the wrong directory). We record deps
+     * now and install them after the unpacking is done. */
     char *deps = control_get(ctl, "Depends");
-    if (deps && *deps) { pmm_install_dep_list(deps); free(deps); }
     char *pkg = control_get(ctl, "Package");
     char *ver = control_get(ctl, "Version");
     if (!pkg || !*pkg) {
@@ -609,6 +624,11 @@ int pdm_install_file(const char *pdmfile) {
     if (flat) {
         flatten_bin(".");   /* cwd = the install address in flat mode */
     }
+
+    /* install dependencies now, AFTER the data tarball is unpacked (see the
+     * note at the top of this function for why deps must not be resolved
+     * before the unpack). */
+    if (deps && *deps) { pmm_install_dep_list(deps); free(deps); deps = NULL; }
 
     /* system-install mode (default, no -p): route the staged files to system
      * destinations (ELF->/usr/bin, .so->system lib dir, etc->/etc/pmm/<pkg>,

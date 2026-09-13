@@ -1,0 +1,16 @@
+{
+  "name": "libpcre2",
+  "version": "10.42",
+  "variants": [
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "libpcre2.pdm",
+      "sha256": "0063e2a1a589dc243518775b28327b5491d877b224d86d9b23e3e081650fad4f",
+      "description": "PCRE2 runtime (self-contained .so)",
+      "name": "libpcre2",
+      "version": "10.42",
+      "url": "https://pmm.parlz.com/mirror/files/l/libpcre2/libpcre2.pdm"
+    }
+  ]
+}

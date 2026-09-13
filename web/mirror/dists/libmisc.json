@@ -1,0 +1,20 @@
+{
+  "name": "libmisc",
+  "version": "1.0.0",
+  "os": "linux",
+  "arch": "amd64",
+  "description": "bz2/zstd/lzma runtime",
+  "owner": "pmm-bot",
+  "variants": [
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "libmisc.pdm",
+      "sha256": "37f99b16f86128983db9db7151b36849204a366c88c94d4380e5b4415b42ad09",
+      "description": "bz2/zstd/lzma runtime (self-contained .so)",
+      "name": "libmisc",
+      "version": "1.0.0",
+      "url": "https://pmm.parlz.com/mirror/files/l/libmisc/libmisc.pdm"
+    }
+  ]
+}

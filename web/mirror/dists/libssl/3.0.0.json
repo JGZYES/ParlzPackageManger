@@ -1,0 +1,16 @@
+{
+  "name": "libssl",
+  "version": "3.0.0",
+  "variants": [
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "libssl.pdm",
+      "sha256": "0b60aaef8dc2325d64bbf11a1d00c2dd2ba073939ff7ccc741b1bc8b022a3917",
+      "description": "OpenSSL runtime (self-contained .so)",
+      "name": "libssl",
+      "version": "3.0.0",
+      "url": "https://pmm.parlz.com/mirror/files/l/libssl/libssl.pdm"
+    }
+  ]
+}
