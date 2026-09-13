@@ -1,0 +1,16 @@
+{
+  "name": "php",
+  "version": "8.4.9",
+  "variants": [
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "8.4.9-linux-amd64.pdm",
+      "sha256": "$sha",
+      "description": "PHP 8.4.9 CLI self-contained (bundles shared libs, glibc>=2.43)",
+      "name": "php",
+      "version": "8.4.9",
+      "url": "https://pmm.parlz.com/mirror/files/p/php/8.4.9-linux-amd64.pdm"
+    }
+  ]
+}

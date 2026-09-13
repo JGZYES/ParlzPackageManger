@@ -13,6 +13,16 @@
       "url": "https://pmm.parlz.com/mirror/files/p/php/8.5.10-windows-amd64.pdm",
       "sha256": "41b6f346d2c09bdd31d0c2b79cb8a1fcd3b87ccc3e92358dd7650ab826356636",
       "description": "PHP 8.5.10 Windows x64"
+    },
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "file": "8.4.9-linux-amd64.pdm",
+      "sha256": "5b6e18f0a89affedbb1b86dc4090c096a2a73dc58b941088e4e1d584221e02d3",
+      "description": "PHP 8.4.9 CLI self-contained (bundles shared libs, glibc>=2.43)",
+      "name": "php",
+      "version": "8.4.9",
+      "url": "https://pmm.parlz.com/mirror/files/p/php/8.4.9-linux-amd64.pdm"
     }
   ]
 }
